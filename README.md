@@ -1,2 +1,2 @@
 # thegarden
-a garden planificator
+a garden planificator 🌱
