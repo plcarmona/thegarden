@@ -86,6 +86,23 @@ class Huerta:
         
         # RF-002: Base de datos de hortalizas
         self.hortalizas_db = self._inicializar_hortalizas()
+        
+        # KuzuDB integration
+        self._kuzu_available = self._init_kuzu_integration()
+    
+    def _init_kuzu_integration(self) -> bool:
+        """Inicializar integración con KuzuDB"""
+        try:
+            from database.model_adapter import model_adapter
+            
+            # Migrar hortalizas existentes a KuzuDB
+            if model_adapter.kuzu.is_available():
+                model_adapter.migrate_hortalizas_to_kuzu(self.hortalizas_db)
+                return True
+            return False
+        except Exception as e:
+            print(f"⚠️ KuzuDB no disponible: {e}")
+            return False
     
     def _inicializar_hortalizas(self) -> Dict[int, Hortaliza]:
         """Inicializar base de datos de hortalizas (RF-002)"""
@@ -130,7 +147,7 @@ class Huerta:
         return list(self.hortalizas_db.values())
     
     def agregar_anotacion(self, anotacion: Anotacion) -> str:
-        """Agregar una nueva anotación (RF-004)"""
+        """Agregar una nueva anotación (RF-004) con soporte KuzuDB"""
         if not anotacion.id:
             anotacion.id = f"anotacion_{len(self.anotaciones) + 1}"
         
@@ -138,7 +155,17 @@ class Huerta:
         if not anotacion.fecha:
             anotacion.fecha = datetime.now().isoformat()
         
+        # Agregar a sistema en memoria
         self.anotaciones.append(anotacion)
+        
+        # Persistir en KuzuDB si está disponible
+        if self._kuzu_available:
+            try:
+                from database.model_adapter import model_adapter
+                model_adapter.create_anotacion_in_kuzu(anotacion)
+            except Exception as e:
+                print(f"⚠️ Error persistiendo anotación en KuzuDB: {e}")
+        
         return anotacion.id
     
     def obtener_anotaciones_por_cultivo(self, cultivo_id: str) -> List[Anotacion]:
@@ -187,8 +214,23 @@ class Huerta:
         return poligono.id
     
     def obtener_planta_en_coordenada(self, x: float, y: float) -> Optional[CultivoActivo]:
-        """Obtener el cultivo activo en una coordenada específica (implementa RF-003)"""
-        # Simple distance-based lookup (could be improved with spatial indexing)
+        """Obtener el cultivo activo en una coordenada específica (implementa RF-003) con KuzuDB"""
+        
+        # Intentar consulta desde KuzuDB primero si está disponible
+        if self._kuzu_available:
+            try:
+                from database.model_adapter import model_adapter
+                kuzu_result = model_adapter.query_planta_by_coordinates(x, y)
+                if kuzu_result:
+                    # Convertir resultado de KuzuDB a modelo Pydantic
+                    # Buscar el cultivo en memoria que coincida
+                    for cultivo in self.cultivos_activos:
+                        if cultivo.id == kuzu_result.get('id'):
+                            return cultivo
+            except Exception as e:
+                print(f"⚠️ Error consultando KuzuDB: {e}")
+        
+        # Fallback a consulta en memoria
         for cultivo in self.cultivos_activos:
             dist = ((cultivo.coordenadas.x - x) ** 2 + (cultivo.coordenadas.y - y) ** 2) ** 0.5
             if dist < 20:  # 20 pixel tolerance
@@ -196,7 +238,7 @@ class Huerta:
         return None
     
     def agregar_cultivo_activo(self, cultivo: CultivoActivo) -> str:
-        """Inicializar un nuevo cultivo activo (implementa RF-005)"""
+        """Inicializar un nuevo cultivo activo (implementa RF-005) con soporte KuzuDB"""
         # Check for collisions
         if self._verificar_colision(cultivo.coordenadas):
             raise ValueError("Colisión detectada: ya existe un cultivo en esta posición")
@@ -205,7 +247,17 @@ class Huerta:
         if not cultivo.id:
             cultivo.id = f"cultivo_{len(self.cultivos_activos) + 1}"
         
+        # Agregar a sistema en memoria
         self.cultivos_activos.append(cultivo)
+        
+        # Persistir en KuzuDB si está disponible
+        if self._kuzu_available:
+            try:
+                from database.model_adapter import model_adapter
+                model_adapter.create_planta_in_kuzu(cultivo)
+            except Exception as e:
+                print(f"⚠️ Error persistiendo cultivo en KuzuDB: {e}")
+        
         return cultivo.id
     
     def _verificar_colision(self, coordenadas: Coordenada, radio: float = 25) -> bool:
