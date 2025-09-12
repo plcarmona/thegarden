@@ -158,29 +158,119 @@ a garden planificator 🌱
 
         - *Criterios de Aceptación:* El sistema valida que el correo no esté en uso, la contraseña cumpla los requisitos de seguridad y envía un correo de confirmación.
 
-* rf-001: Cargar mapa de la huerta, esto con un conjunto de polígonos y posiciones (x,y) en un canvas.
-* rf-002: Implementar base de datos con las tablas necesarias para registrar los eventos, cultivos.
-* rf-003: Queries para consultar la base de datos.
-  - query por x,y
-* rf-004: Funciones para anotaciones de eventos en la base de datos.Considerar distintos niveles de especificidad, es decir pueden ser anotaciones por tipo de plantas, por tiempo, por individuo(planta), estacion.
-* rf-005: Funciones para inicializar cultivos activos. > instancias de hortalizas, con pos(x,y). Checkear que no hay colisiones.
-* rf-006: Obtener datos del clima de una api externa.
-* rf-007: Mostrar calendario lunar.
-* rf-008: Mostrar calendario de siembra y cosecha.
-* rf-009: Sugerencias de siembra segun fecha actual
+* **RF-001: Cargar mapa de la huerta**
+  - *Descripción:* El sistema debe permitir cargar y visualizar un mapa de la huerta usando coordenadas (x,y) en un canvas HTML5.
+  - *Criterios de Aceptación:*
+    - El sistema muestra un canvas interactivo para visualizar la huerta
+    - Se pueden definir polígonos para representar áreas de cultivo
+    - Cada polígono tiene coordenadas (x,y) precisas
+    - El mapa es escalable y permite zoom básico
+  - *Prioridad:* Alta (Fase 1)
+
+* **RF-002: Implementar base de datos**
+  - *Descripción:* Crear estructura de base de datos con tablas para eventos, cultivos y anotaciones.
+  - *Criterios de Aceptación:*
+    - Base de datos KuzuDB configurada correctamente
+    - Tablas creadas según el esquema definido
+    - Relaciones entre tablas establecidas
+  - *Prioridad:* Alta (Fase 1)
+
+* **RF-003: Queries para consultar la base de datos**
+  - *Descripción:* Implementar funciones de consulta, especialmente por coordenadas (x,y).
+  - *Criterios de Aceptación:*
+    - Query por coordenadas (x,y) devuelve planta activa si existe
+    - Queries optimizadas para rendimiento
+    - Manejo de errores y casos edge
+  - *Prioridad:* Alta (Fase 1)
+
+* **RF-004: Sistema de anotaciones**
+  - *Descripción:* Funciones para registrar eventos con diferentes niveles de especificidad.
+  - *Criterios de Aceptación:*
+    - Anotaciones por tipo de planta, tiempo, individuo, estación
+    - Timestamps automáticos
+    - Asociación correcta con cultivos
+  - *Prioridad:* Media (Fase 2)
+
+* **RF-005: Inicialización de cultivos activos**
+  - *Descripción:* Crear instancias de hortalizas con posiciones específicas.
+  - *Criterios de Aceptación:*
+    - Instancias con posición (x,y) válida
+    - Verificación de colisiones entre cultivos
+    - Estado de cultivo activo/inactivo
+  - *Prioridad:* Alta (Fase 1)
+
+* **RF-006: Integración API del clima**
+  - *Descripción:* Obtener datos meteorológicos de API externa.
+  - *Criterios de Aceptación:*
+    - Datos de clima de próximos 7 días
+    - Manejo de errores de API
+    - Cache de datos para reducir llamadas
+  - *Prioridad:* Media (Fase 2)
+
+* **RF-007: Calendario lunar**
+  - *Descripción:* Mostrar fases lunares y recomendaciones de siembra.
+  - *Criterios de Aceptación:*
+    - Fases lunares precisas
+    - Tips de siembra según fase lunar
+    - Integración con calendario de cultivos
+  - *Prioridad:* Baja (Fase 3)
+
+* **RF-008: Calendario de siembra y cosecha**
+  - *Descripción:* Visualizar fechas importantes para cada cultivo.
+  - *Criterios de Aceptación:*
+    - Calendario visual intuitivo
+    - Fechas automáticas basadas en tipo de cultivo
+    - Recordatorios y alertas
+  - *Prioridad:* Media (Fase 2)
+
+* **RF-009: Sugerencias de siembra**
+  - *Descripción:* Recomendaciones automáticas según fecha actual y condiciones.
+  - *Criterios de Aceptación:*
+    - Sugerencias basadas en temporada
+    - Consideración del clima local
+    - Disponibilidad de espacio en huerta
+  - *Prioridad:* Baja (Fase 3)
 
 
 #### 3.2. Requisitos No Funcionales
 
-  
+- **Rendimiento:**
+  - El mapa de la huerta debe cargar en menos de 3 segundos
+  - Las consultas a la base de datos deben responder en menos de 500ms
+  - El canvas debe mantener 30 FPS durante interacciones
 
-- *Rendimiento:* [Ej: "El sistema deberá cargar la página principal en menos de 2 segundos".]
+- **Usabilidad:**
+  - Interfaz intuitiva para usuarios sin experiencia técnica en jardinería
+  - Navegación por teclado y mouse en el mapa
+  - Responsive design para tablets y escritorio
 
-- *Seguridad:* [Ej: "Todas las contraseñas deben almacenarse cifradas utilizando el algoritmo bcrypt".]
+- **Confiabilidad:**
+  - Sistema debe funcionar offline para funcionalidades básicas
+  - Backup automático de datos de la huerta
+  - Tolerancia a fallos en APIs externas
 
-- *Usabilidad:* [Ej: "La interfaz debe ser intuitiva para usuarios sin experiencia técnica".]
+- **Compatibilidad:**
+  - Navegadores modernos (Chrome 90+, Firefox 88+, Safari 14+)
+  - Soporte para dispositivos táctiles
+  - Resoluciones desde 1024x768
 
-- *Confiabilidad:* [Ej: "El sistema debe tener una disponibilidad del 99.9%".]
+#### 3.3. Fases de Desarrollo
+
+**Fase 1 - MVP (Funcionalidad Básica)**
+- RF-001: Mapa de huerta con canvas
+- RF-002: Base de datos básica
+- RF-003: Consultas por coordenadas
+- RF-005: Cultivos activos básicos
+
+**Fase 2 - Funcionalidades Avanzadas**
+- RF-004: Sistema de anotaciones completo
+- RF-006: Integración API del clima
+- RF-008: Calendario de siembra/cosecha
+
+**Fase 3 - Características Premium**
+- RF-007: Calendario lunar
+- RF-009: Sugerencias inteligentes
+- Optimizaciones de rendimiento
 
   
 
@@ -223,20 +313,23 @@ Componentes:
 
 #### 4.3. Selección de Plataformas Tecnológicas
 
-  
+- **Lenguaje de Programación:** Python 3.9+
+  - Justificación: Ecosistema rico para análisis de datos y APIs
 
-- *Lenguaje de Programación:* [Ej: Java, Python, 
-Python
+- **Framework Backend:** FastAPI
+  - Justificación: Alto rendimiento, documentación automática, typing nativo
 
-- *Frameworks:* [Ej: Spring Boot, Django, React.]
-FastAPI
+- **Frontend:** HTML5 + JavaScript (Vanilla) + Canvas API
+  - Justificación: Simplicidad, control total sobre rendering, sin dependencias pesadas
 
-- *Base de Datos:* [Ej: PostgreSQL, MongoDB.]
+- **Base de Datos:** KuzuDB
+  - Justificación: Optimizada para consultas con relaciones complejas, ideal para coordenadas
 
-KuzuDB
+- **Gestión de Dependencias:** Poetry
+  - Justificación: Manejo moderno de dependencias Python
 
-- *Servidores/Infraestructura:* [Ej: AWS EC2, Docker, Kubernetes.]
-NO
+- **Servidor Web:** Uvicorn
+  - Justificación: Servidor ASGI de alto rendimiento para FastAPI
   
 
 ### 5. Diseño de Bajo Nivel (Low-Level Design - LLD)
@@ -315,3 +408,29 @@ Tablas:
   - clima (datos obtenidos de API externa)
   - calendario lunar
   - calendario de siembra/cosecha
+
+#### 5.3. Diseño de API REST
+
+**Endpoints principales:**
+
+```
+GET /api/huerta/mapa
+- Descripción: Obtiene la configuración del mapa de la huerta
+- Respuesta: { "polygons": [...], "dimensions": {...} }
+
+POST /api/huerta/mapa/poligono
+- Descripción: Añade un nuevo polígono al mapa
+- Body: { "coordinates": [[x,y], ...], "tipo": "cultivo" }
+
+GET /api/huerta/coordenada/{x}/{y}
+- Descripción: Consulta qué hay en una coordenada específica
+- Respuesta: { "cultivo": {...}, "anotaciones": [...] }
+
+POST /api/cultivos/activos
+- Descripción: Inicializa un nuevo cultivo activo
+- Body: { "hortaliza_id": 1, "coordenadas": [x,y], "fecha_siembra": "..." }
+
+GET /api/cultivos/tipos
+- Descripción: Lista todos los tipos de hortalizas disponibles
+- Respuesta: [{ "id": 1, "nombre": "tomate", "ciclo_dias": 120, ... }]
+```
