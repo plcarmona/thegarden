@@ -14,6 +14,8 @@ class GardenMap {
     init() {
         this.setupEventListeners();
         this.loadMapData();
+        this.loadWeatherData();
+        this.loadLunarData();
         this.render();
     }
     
@@ -206,6 +208,97 @@ class GardenMap {
         } catch (error) {
             this.updateStatus(`Error cargando mapa: ${error.message}`);
         }
+    }
+    
+    async loadWeatherData() {
+        try {
+            const response = await fetch('/api/clima/pronostico');
+            const data = await response.json();
+            this.displayWeatherInfo(data);
+            
+            // Load weather alerts
+            const alertsResponse = await fetch('/api/clima/alertas');
+            const alerts = await alertsResponse.json();
+            this.displayWeatherAlerts(alerts);
+        } catch (error) {
+            document.getElementById('weather-info').innerHTML = 
+                '<p style="color: #dc3545;">Error cargando clima</p>';
+        }
+    }
+    
+    async loadLunarData() {
+        try {
+            const response = await fetch('/api/calendario/lunar');
+            const data = await response.json();
+            this.displayLunarInfo(data);
+        } catch (error) {
+            document.getElementById('lunar-info').innerHTML = 
+                '<p style="color: #dc3545;">Error cargando información lunar</p>';
+        }
+    }
+    
+    displayWeatherInfo(data) {
+        const weatherInfo = document.getElementById('weather-info');
+        const today = data.dias[0];
+        const tomorrow = data.dias[1];
+        
+        weatherInfo.innerHTML = `
+            <div>
+                <strong>Hoy:</strong> ${today.icono} ${today.descripcion}<br>
+                <span style="font-size: 0.85em;">
+                    ${today.temperatura_min}°C - ${today.temperatura_max}°C<br>
+                    Humedad: ${today.humedad}%
+                </span>
+            </div>
+            <div style="margin-top: 8px;">
+                <strong>Mañana:</strong> ${tomorrow.icono} ${tomorrow.descripcion}<br>
+                <span style="font-size: 0.85em;">
+                    ${tomorrow.temperatura_min}°C - ${tomorrow.temperatura_max}°C
+                </span>
+            </div>
+        `;
+    }
+    
+    displayWeatherAlerts(alerts) {
+        const alertsContainer = document.getElementById('weather-alerts');
+        
+        if (alerts.length === 0) {
+            alertsContainer.innerHTML = '';
+            return;
+        }
+        
+        const alertsHtml = alerts.map(alert => `
+            <div class="alert alert-${alert.severidad}">
+                <strong>${alert.tipo.replace('_', ' ')}:</strong> ${alert.mensaje}
+            </div>
+        `).join('');
+        
+        alertsContainer.innerHTML = alertsHtml;
+    }
+    
+    displayLunarInfo(data) {
+        const lunarInfo = document.getElementById('lunar-info');
+        
+        const phaseIcons = {
+            'nueva': '🌑',
+            'creciente': '🌓',
+            'llena': '🌕',
+            'menguante': '🌗'
+        };
+        
+        lunarInfo.innerHTML = `
+            <div class="lunar-phase">
+                <span class="phase-icon">${phaseIcons[data.fase]}</span>
+                <span><strong>Fase ${data.fase}</strong></span>
+            </div>
+            <div style="font-size: 0.85em; margin: 5px 0;">
+                Iluminación: ${data.iluminacion_porcentaje}%
+            </div>
+            <div class="recommendations">
+                <strong>Recomendación:</strong><br>
+                <span style="font-size: 0.85em;">${data.recomendacion_siembra}</span>
+            </div>
+        `;
     }
     
     render() {

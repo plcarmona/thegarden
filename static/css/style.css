@@ -87,6 +87,72 @@ header p {
     font-size: 1em;
 }
 
+.weather-panel,
+.lunar-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f8f0;
+    border-radius: 8px;
+    border: 1px solid #d4ddd4;
+}
+
+.weather-panel h4,
+.lunar-panel h4 {
+    color: #2d5a2d;
+    margin-bottom: 10px;
+    font-size: 1em;
+}
+
+.weather-info,
+.lunar-info {
+    font-size: 0.9em;
+    color: #555;
+}
+
+.weather-alerts {
+    margin-top: 10px;
+}
+
+.alert {
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.alert-alta {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f1aeb5;
+}
+
+.alert-media {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.lunar-phase {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.phase-icon {
+    font-size: 1.2em;
+}
+
+.recommendations {
+    margin-top: 10px;
+    font-size: 0.85em;
+}
+
+.recommendations ul {
+    margin-left: 15px;
+    list-style-type: disc;
+}
+
 .polygon-tools input,
 .polygon-tools select,
 .plant-tools input,
