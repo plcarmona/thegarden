@@ -6,6 +6,7 @@ class GardenMap {
         this.currentPolygon = [];
         this.polygons = [];
         this.plants = [];
+        this.annotations = [];
         this.isDrawing = false;
         
         this.init();
@@ -27,11 +28,15 @@ class GardenMap {
         // Tool buttons
         document.getElementById('tool-polygon').addEventListener('click', () => this.setTool('polygon'));
         document.getElementById('tool-plant').addEventListener('click', () => this.setTool('plant'));
+        document.getElementById('tool-annotation').addEventListener('click', () => this.setTool('annotation'));
         document.getElementById('tool-select').addEventListener('click', () => this.setTool('select'));
         
         // Polygon tools
         document.getElementById('finish-polygon').addEventListener('click', this.finishPolygon.bind(this));
         document.getElementById('clear-polygon').addEventListener('click', this.clearCurrentPolygon.bind(this));
+        
+        // Annotation tools
+        document.getElementById('save-annotation').addEventListener('click', this.saveCurrentAnnotation.bind(this));
         
         // Set initial date to today
         document.getElementById('plant-date').value = new Date().toISOString().split('T')[0];
@@ -47,6 +52,7 @@ class GardenMap {
         // Show/hide tool panels
         document.getElementById('polygon-tools').style.display = tool === 'polygon' ? 'block' : 'none';
         document.getElementById('plant-tools').style.display = tool === 'plant' ? 'block' : 'none';
+        document.getElementById('annotation-tools').style.display = tool === 'annotation' ? 'block' : 'none';
         
         // Clear current polygon if switching tools
         if (tool !== 'polygon') {
@@ -60,6 +66,7 @@ class GardenMap {
         const names = {
             'polygon': 'Crear Área',
             'plant': 'Plantar',
+            'annotation': 'Anotar',
             'select': 'Seleccionar'
         };
         return names[tool] || tool;
@@ -76,6 +83,9 @@ class GardenMap {
                 break;
             case 'plant':
                 this.addPlant(x, y);
+                break;
+            case 'annotation':
+                this.startAnnotationAt(x, y);
                 break;
             case 'select':
                 this.selectAtCoordinate(x, y);
@@ -203,6 +213,7 @@ class GardenMap {
             
             this.polygons = data.poligonos || [];
             this.plants = data.cultivos_activos || [];
+            this.annotations = data.anotaciones || [];
             this.render();
             this.updateStatus('Mapa cargado exitosamente');
         } catch (error) {
@@ -318,6 +329,9 @@ class GardenMap {
         
         // Draw plants
         this.plants.forEach(plant => this.drawPlant(plant));
+        
+        // Draw annotations
+        this.annotations.forEach(annotation => this.drawAnnotation(annotation));
     }
     
     drawGrid() {
@@ -415,6 +429,87 @@ class GardenMap {
     updateStatus(message) {
         document.getElementById('status').textContent = message;
         console.log('Status:', message);
+    }
+    
+    // Annotation methods
+    startAnnotationAt(x, y) {
+        // Store the coordinates for the annotation
+        this.currentAnnotationCoords = {x, y};
+        this.updateStatus(`Click en (${Math.round(x)}, ${Math.round(y)}). Configure la anotación y haga click en "Guardar Anotación".`);
+    }
+    
+    async saveCurrentAnnotation() {
+        if (!this.currentAnnotationCoords) {
+            this.updateStatus('Primero haga click en el mapa para ubicar la anotación');
+            return;
+        }
+        
+        const type = document.getElementById('annotation-type').value;
+        const level = document.getElementById('annotation-level').value;
+        const notes = document.getElementById('annotation-notes').value.trim();
+        
+        if (!notes) {
+            this.updateStatus('Por favor escriba alguna nota para la anotación');
+            return;
+        }
+        
+        const annotation = {
+            tipo: type,
+            nivel_especificidad: level,
+            fecha: new Date().toISOString(),
+            notas: notes,
+            coordenadas: this.currentAnnotationCoords
+        };
+        
+        try {
+            const response = await fetch('/api/huerta/anotaciones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(annotation)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                annotation.id = result.id;
+                this.annotations.push(annotation);
+                this.render();
+                
+                // Clear form
+                document.getElementById('annotation-notes').value = '';
+                this.currentAnnotationCoords = null;
+                
+                this.updateStatus(`Anotación guardada exitosamente`);
+            } else {
+                throw new Error('Error al guardar anotación');
+            }
+        } catch (error) {
+            this.updateStatus(`Error guardando anotación: ${error.message}`);
+        }
+    }
+    
+    drawAnnotation(annotation) {
+        if (!annotation.coordenadas) return;
+        
+        const x = annotation.coordenadas.x;
+        const y = annotation.coordenadas.y;
+        
+        // Draw annotation marker
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 8, 0, 2 * Math.PI);
+        this.ctx.fillStyle = '#007bff';
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        
+        // Draw annotation icon
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('📝', x, y);
     }
 }
 

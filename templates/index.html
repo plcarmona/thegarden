@@ -20,6 +20,7 @@
                     <div class="tool-group">
                         <button id="tool-polygon" class="tool-btn active">Crear Área</button>
                         <button id="tool-plant" class="tool-btn">Plantar</button>
+                        <button id="tool-annotation" class="tool-btn">Anotar</button>
                         <button id="tool-select" class="tool-btn">Seleccionar</button>
                     </div>
                     
@@ -44,6 +45,27 @@
                             <option value="4">Pepino</option>
                         </select>
                         <input type="date" id="plant-date">
+                    </div>
+                    
+                    <div class="annotation-tools" id="annotation-tools" style="display: none;">
+                        <h4>Nueva Anotación</h4>
+                        <select id="annotation-type">
+                            <option value="nota">Nota</option>
+                            <option value="evento">Evento</option>
+                            <option value="siembra">Siembra</option>
+                            <option value="cosecha">Cosecha</option>
+                            <option value="riego">Riego</option>
+                            <option value="fertilizacion">Fertilización</option>
+                            <option value="poda">Poda</option>
+                        </select>
+                        <select id="annotation-level">
+                            <option value="individuo">Lugar específico</option>
+                            <option value="tipo_planta">Por tipo de planta</option>
+                            <option value="tiempo">Por temporada</option>
+                            <option value="estacion">Por estación</option>
+                        </select>
+                        <textarea id="annotation-notes" placeholder="Escriba sus notas aquí..." rows="3"></textarea>
+                        <button id="save-annotation">Guardar Anotación</button>
                     </div>
                     
                     <!-- Weather Panel (RF-006) -->
