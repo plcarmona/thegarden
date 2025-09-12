@@ -71,3 +71,7 @@ temp/
 # Database
 *.db
 *.sqlite3
+
+# KuzuDB database files
+database/*.kuzu
+database/**/*.kuzu
