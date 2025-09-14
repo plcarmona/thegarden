@@ -48,11 +48,35 @@ class KuzuDBManager:
                 self.db = kuzu.Database(self.db_path)
                 self.conn = kuzu.Connection(self.db)
                 print(f"✓ Conectado a KuzuDB: {self.db_path}")
+                
+                # Check if database is initialized, auto-initialize if needed
+                if not self._is_database_initialized():
+                    print("⚠️ Database not initialized, auto-initializing schema...")
+                    if self.initialize_schema():
+                        print("✓ Database auto-initialized successfully")
+                    else:
+                        print("❌ Auto-initialization failed")
+                
             except Exception as e:
                 print(f"❌ Error conectando a KuzuDB: {e}")
                 self._kuzu_available = False
                 return None
         return self.conn
+    
+    def _is_database_initialized(self) -> bool:
+        """Check if the database has been initialized with required tables"""
+        if not self.conn:
+            return False
+        
+        try:
+            # Test for key tables by trying a simple count query
+            self.conn.execute("MATCH (n:Anotation) RETURN count(n) LIMIT 1")
+            self.conn.execute("MATCH (n:Estructura) RETURN count(n) LIMIT 1") 
+            self.conn.execute("MATCH (n:Hortaliza) RETURN count(n) LIMIT 1")
+            return True
+        except Exception:
+            # If any query fails, database is not properly initialized
+            return False
     
     def is_available(self) -> bool:
         """Verificar si KuzuDB está disponible y conectado"""
@@ -62,12 +86,13 @@ class KuzuDBManager:
         """Inicializar schema desde archivo SQL"""
         if not self.is_available():
             print("⚠️ KuzuDB no disponible, saltando inicialización de schema")
-            return
+            return False
             
-        conn = self.connect()
+        # Use existing connection if available, otherwise connect
+        conn = self.conn if self.conn else self.connect()
         if conn is None:
             print("❌ Error: No se pudo establecer conexión a KuzuDB para inicializar schema")
-            return
+            return False
             
         schema_path = "database/schemas/garden_schema.sql"
         
