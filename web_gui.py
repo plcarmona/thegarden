@@ -185,7 +185,7 @@ def api_annotations():
             db_status['connected'] = True
             db_status['message'] = 'Connected successfully'
             
-            annotations = kuzu_manager.query_all_annotations()
+            annotations = kuzu_manager.query_all_annotations(connection=conn)
             
             # Format annotations for frontend
             formatted_annotations = []
@@ -226,7 +226,7 @@ def api_structures():
             db_status['connected'] = True
             db_status['message'] = 'Connected successfully'
             
-            structures = kuzu_manager.query_all_estructuras()
+            structures = kuzu_manager.query_all_estructuras(connection=conn)
             
             # Format structures for frontend
             formatted_structures = []
@@ -289,7 +289,7 @@ def api_check_coordinates():
             raise Exception("Could not connect to database")
         
         try:
-            intersecting = kuzu_manager.check_coordinate_in_structure(x, y)
+            intersecting = kuzu_manager.check_coordinate_in_structure(x, y, connection=conn)
             
             if intersecting:
                 structure_names = [s['nombre'] for s in intersecting]
@@ -346,7 +346,7 @@ def api_add_plant():
             db_status['connected'] = True
             db_status['message'] = 'Connected successfully'
             
-            intersecting = kuzu_manager.check_coordinate_in_structure(x_coord, y_coord)
+            intersecting = kuzu_manager.check_coordinate_in_structure(x_coord, y_coord, connection=conn)
             if intersecting and not data.get('force_add', False):
                 structure_names = [s['nombre'] for s in intersecting]
                 return jsonify({

@@ -494,7 +494,7 @@ class KuzuDBManager:
             if not connection:
                 self.close(conn)
     
-    def query_plantas_by_coordinates(self, x: float, y: float, radius: float = 20.0) -> List[Dict]:
+    def query_plantas_by_coordinates(self, x: float, y: float, radius: float = 20.0, connection=None) -> List[Dict]:
         """Consulta optimizada para obtener plantas por coordenadas"""
         if not self.is_available():
             return []
@@ -511,7 +511,7 @@ class KuzuDBManager:
         """
         
         try:
-            result = self.execute_query(query, {"x": x, "y": y, "radius": radius})
+            result = self.execute_query(query, {"x": x, "y": y, "radius": radius}, connection=connection)
             plantas = []
             
             if result and result.has_next():
@@ -534,7 +534,7 @@ class KuzuDBManager:
             print(f"Error en consulta por coordenadas: {e}")
             return []
     
-    def query_all_estructuras(self) -> List[Dict]:
+    def query_all_estructuras(self, connection=None) -> List[Dict]:
         """Get all structures/unusable areas"""
         if not self.is_available():
             return []
@@ -546,7 +546,7 @@ class KuzuDBManager:
         """
         
         try:
-            result = self.execute_query(query)
+            result = self.execute_query(query, connection=connection)
             estructuras = []
             
             if result and result.has_next():
@@ -567,13 +567,13 @@ class KuzuDBManager:
             print(f"Error consultando estructuras: {e}")
             return []
     
-    def check_coordinate_in_structure(self, x: float, y: float) -> List[Dict]:
+    def check_coordinate_in_structure(self, x: float, y: float, connection=None) -> List[Dict]:
         """Check if coordinates are inside any structure (unusable area)"""
         if not self.is_available():
             return []
             
         # Get all structures and check manually (KuzuDB doesn't have built-in point-in-polygon)
-        estructuras = self.query_all_estructuras()
+        estructuras = self.query_all_estructuras(connection=connection)
         intersecting = []
         
         for estructura in estructuras:
@@ -599,7 +599,7 @@ class KuzuDBManager:
             
         return inside
     
-    def query_all_annotations(self) -> List[Dict]:
+    def query_all_annotations(self, connection=None) -> List[Dict]:
         """Get all annotations ordered by date (most recent first)"""
         if not self.is_available():
             return []
@@ -611,7 +611,7 @@ class KuzuDBManager:
         """
         
         try:
-            result = self.execute_query(query)
+            result = self.execute_query(query, connection=connection)
             annotations = []
             
             if result and result.has_next():
