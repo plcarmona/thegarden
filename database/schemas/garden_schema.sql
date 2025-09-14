@@ -25,7 +25,8 @@ CREATE NODE TABLE Planta (
     fecha_siembra DATE,
     coordenadas_x DOUBLE,
     coordenadas_y DOUBLE,
-    fecha_cosecha DATE
+    fecha_cosecha DATE,
+    estado STRING
 );
 
 -- Huerta: Información espacial y configuración de jardín

@@ -370,7 +370,7 @@ class GardenGUI:
             
             kuzu_manager.execute_query(create_plant_query, {
                 'id': plant_id,
-                'fecha_siembra': datetime.now(),
+                'fecha_siembra': datetime.now().date(),
                 'coordenadas_x': x_coord,
                 'coordenadas_y': y_coord,
                 'estado': 'activo'
