@@ -19,6 +19,14 @@ def initialize_database():
     """Initialize the database with schema and initial data"""
     print("📋 Initializing KuzuDB database...")
     
+    # Remove old database
+    import shutil
+    if os.path.exists("database/garden.kuzu"):
+        if os.path.isfile("database/garden.kuzu"):
+            os.remove("database/garden.kuzu")
+        else:
+            shutil.rmtree("database/garden.kuzu")
+    
     # Connect to database
     conn = kuzu_manager.connect()
     if not conn:
@@ -27,13 +35,40 @@ def initialize_database():
         return False
     
     try:
-        # Initialize schema
         print("🔧 Creating database schema...")
-        kuzu_manager.initialize_schema()
         
-        # Load initial data
+        # Create basic node tables
+        kuzu_manager.execute_query("CREATE NODE TABLE Plant (id STRING PRIMARY KEY, name STRING, x DOUBLE, y DOUBLE)")
+        kuzu_manager.execute_query("CREATE NODE TABLE Garden (id STRING PRIMARY KEY, name STRING, width DOUBLE, height DOUBLE)")
+        
+        # Create relationship table
+        kuzu_manager.execute_query("CREATE REL TABLE GROWS_IN (FROM Plant TO Garden)")
+        
         print("📦 Loading initial data...")
-        kuzu_manager.load_initial_data()
+        
+        # Create garden
+        kuzu_manager.execute_query("CREATE (g:Garden {id: 'main_garden', name: 'My Garden', width: 800.0, height: 600.0})")
+        
+        # Create plants
+        kuzu_manager.execute_query("CREATE (p:Plant {id: 'tomato_1', name: 'Tomato Plant', x: 100.0, y: 100.0})")
+        kuzu_manager.execute_query("CREATE (p:Plant {id: 'lettuce_1', name: 'Lettuce Plant', x: 200.0, y: 150.0})")
+        kuzu_manager.execute_query("CREATE (p:Plant {id: 'carrot_1', name: 'Carrot Plant', x: 150.0, y: 200.0})")
+        
+        # Create relationships
+        kuzu_manager.execute_query("""
+            MATCH (p:Plant {id: 'tomato_1'}), (g:Garden {id: 'main_garden'})
+            CREATE (p)-[:GROWS_IN]->(g)
+        """)
+        
+        kuzu_manager.execute_query("""
+            MATCH (p:Plant {id: 'lettuce_1'}), (g:Garden {id: 'main_garden'})
+            CREATE (p)-[:GROWS_IN]->(g)
+        """)
+        
+        kuzu_manager.execute_query("""
+            MATCH (p:Plant {id: 'carrot_1'}), (g:Garden {id: 'main_garden'})
+            CREATE (p)-[:GROWS_IN]->(g)
+        """)
         
         print("✅ Database initialized successfully!")
         return True
@@ -100,8 +135,8 @@ def search_by_coordinates():
     try:
         x = float(input("Enter X coordinate: "))
         y = float(input("Enter Y coordinate: "))
-        radius = input("Enter search radius (default 20): ").strip()
-        radius = float(radius) if radius else 20.0
+        radius = input("Enter search radius (default 50): ").strip()
+        radius = float(radius) if radius else 50.0
         
         print(f"\n🔍 Searching plants near ({x}, {y}) with radius {radius}...")
         
@@ -111,16 +146,34 @@ def search_by_coordinates():
             return
         
         try:
-            plantas = kuzu_manager.query_plantas_by_coordinates(x, y, radius)
+            # Simple distance-based query using parameters to avoid SQL injection
+            query = """
+            MATCH (p:Plant)
+            WHERE sqrt(pow(p.x - $x, 2) + pow(p.y - $y, 2)) <= $radius
+            RETURN p.id, p.name, p.x, p.y, sqrt(pow(p.x - $x, 2) + pow(p.y - $y, 2)) as distance
+            ORDER BY distance
+            """
             
-            if plantas:
-                print(f"\n✅ Found {len(plantas)} plants:")
-                for planta in plantas:
-                    print(f"  📍 ID: {planta['id']}")
-                    print(f"     Plant: {planta['hortaliza_nombre']}")
-                    print(f"     Position: ({planta['coordenadas_x']}, {planta['coordenadas_y']})")
-                    print(f"     Distance: {planta['distancia']:.1f} units")
-                    print(f"     Status: {planta['estado']}")
+            result = kuzu_manager.execute_query(query, {"x": x, "y": y, "radius": radius})
+            
+            plants = []
+            if result and result.has_next():
+                while result.has_next():
+                    row = result.get_next()
+                    plants.append({
+                        'id': row[0],
+                        'name': row[1],
+                        'x': row[2],
+                        'y': row[3],
+                        'distance': row[4]
+                    })
+            
+            if plants:
+                print(f"\n✅ Found {len(plants)} plants:")
+                for plant in plants:
+                    print(f"  📍 {plant['name']} ({plant['id']})")
+                    print(f"     Position: ({plant['x']}, {plant['y']})")
+                    print(f"     Distance: {plant['distance']:.1f} units")
                     print()
             else:
                 print("🔍 No plants found in the specified area")
@@ -136,35 +189,51 @@ def search_by_coordinates():
 
 def show_database_info():
     """Show database information and statistics"""
+    print("📊 Database Information:")
+    print(f"   📍 Location: {kuzu_manager.db_path}")
+    print(f"   🔗 Available: {kuzu_manager._kuzu_available}")
+    
+    if not kuzu_manager._kuzu_available:
+        print("   ⚠️ KuzuDB not available")
+        return
+    
     conn = kuzu_manager.connect()
     if not conn:
         print("❌ Could not connect to database")
         return
     
     try:
-        print("📊 Database Information:")
-        print(f"   📍 Location: {kuzu_manager.db_path}")
-        print(f"   🔗 Connected: {kuzu_manager.is_available()}")
+        # Get basic statistics
+        print("\n📈 Statistics:")
         
-        if kuzu_manager.is_available():
-            # Try to get some basic statistics
-            queries = [
-                ("Hortalizas", "MATCH (h:Hortaliza) RETURN count(h)"),
-                ("Plants", "MATCH (p:Planta) RETURN count(p)"),
-                ("Annotations", "MATCH (a:Anotaciones) RETURN count(a)"),
-            ]
-            
-            print("\n📈 Statistics:")
-            for name, query in queries:
-                try:
-                    result = kuzu_manager.execute_query(query)
-                    if result and result.has_next():
-                        count = result.get_next()[0]
-                        print(f"   {name}: {count}")
-                    else:
-                        print(f"   {name}: 0")
-                except Exception as e:
-                    print(f"   {name}: Error ({e})")
+        queries = [
+            ("Total Plants", "MATCH (p:Plant) RETURN count(p)"),
+            ("Total Gardens", "MATCH (g:Garden) RETURN count(g)"),
+        ]
+        
+        for name, query in queries:
+            try:
+                result = kuzu_manager.execute_query(query)
+                if result and result.has_next():
+                    count = result.get_next()[0]
+                    print(f"   {name}: {count}")
+                else:
+                    print(f"   {name}: 0")
+            except Exception as e:
+                print(f"   {name}: Error ({e})")
+        
+        # List all plants
+        print("\n🌱 Plants in database:")
+        try:
+            result = kuzu_manager.execute_query("MATCH (p:Plant) RETURN p.id, p.name, p.x, p.y")
+            if result and result.has_next():
+                while result.has_next():
+                    row = result.get_next()
+                    print(f"   - {row[1]} ({row[0]}) at ({row[2]}, {row[3]})")
+            else:
+                print("   No plants found")
+        except Exception as e:
+            print(f"   Error listing plants: {e}")
         
     except Exception as e:
         print(f"❌ Error getting database info: {e}")
