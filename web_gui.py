@@ -56,18 +56,20 @@ def api_initialize_db():
         if not conn:
             raise Exception("Could not connect to KuzuDB")
         
-        # Initialize schema and data
-        schema_success = kuzu_manager.initialize_schema()
-        if not schema_success:
-            raise Exception("Schema initialization failed")
-        
-        kuzu_manager.load_initial_data()
-        kuzu_manager.close()
-        
-        db_status['connected'] = True
-        db_status['message'] = 'Database initialized and connected'
-        
-        return jsonify({'success': True, 'message': 'Database initialized successfully!'})
+        try:
+            # Initialize schema and data
+            schema_success = kuzu_manager.initialize_schema()
+            if not schema_success:
+                raise Exception("Schema initialization failed")
+            
+            kuzu_manager.load_initial_data()
+            
+            db_status['connected'] = True
+            db_status['message'] = 'Database initialized and connected'
+            
+            return jsonify({'success': True, 'message': 'Database initialized successfully!'})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         db_status['connected'] = False
@@ -86,7 +88,7 @@ def api_connect_db():
         if conn:
             db_status['connected'] = True
             db_status['message'] = 'Connected successfully'
-            kuzu_manager.close()
+            kuzu_manager.close(conn)  # Pass the specific connection to close
             return jsonify({'success': True, 'message': 'Connected to database successfully'})
         else:
             raise Exception("Failed to connect to database")
@@ -105,39 +107,40 @@ def api_get_plants():
         if not conn:
             return jsonify({'success': False, 'message': 'Could not connect to database'})
         
-        # Update status since we successfully connected
-        db_status['connected'] = True
-        db_status['message'] = 'Connected successfully'
-        
-        # Query all plants
-        result = kuzu_manager.execute_query("""
-            MATCH (p:Planta)-[:IS_OF_TYPE]->(h:Hortaliza)
-            RETURN p.id, h.nombre, p.coordenadas_x, p.coordenadas_y, p.fecha_siembra
-            ORDER BY p.id
-        """)
-        
+        try:
+            # Update status since we successfully connected
+            db_status['connected'] = True
+            db_status['message'] = 'Connected successfully'
+            
+            # Query all plants
+            result = kuzu_manager.execute_query("""
+                MATCH (p:Planta)-[:IS_OF_TYPE]->(h:Hortaliza)
+                RETURN p.id, h.nombre, p.coordenadas_x, p.coordenadas_y, p.fecha_siembra
+                ORDER BY p.id
+            """, connection=conn)
+            
+            plants = []
+            if result and result.has_next():
+                while result.has_next():
+                    row = result.get_next()
 
-        plants = []
-        if result and result.has_next():
-            while result.has_next():
-                row = result.get_next()
-
-                plant_date = row[4] if row[4] else "Unknown"
-                
-                # Format date for display
-                if isinstance(plant_date, datetime):
-                    plant_date = plant_date.strftime("%Y-%m-%d %H:%M")
-                
-                plants.append({
-                    'id': row[0],
-                    'type': row[1],
-                    'x': row[2],
-                    'y': row[3],
-                    'date': plant_date
-                })
-        
-        kuzu_manager.close()
-        return jsonify({'success': True, 'plants': plants})
+                    plant_date = row[4] if row[4] else "Unknown"
+                    
+                    # Format date for display
+                    if isinstance(plant_date, datetime):
+                        plant_date = plant_date.strftime("%Y-%m-%d %H:%M")
+                    
+                    plants.append({
+                        'id': row[0],
+                        'type': row[1],
+                        'x': row[2],
+                        'y': row[3],
+                        'date': plant_date
+                    })
+            
+            return jsonify({'success': True, 'plants': plants})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         db_status['connected'] = False
@@ -177,30 +180,32 @@ def api_annotations():
         if not conn:
             return jsonify({'success': False, 'message': 'Could not connect to database'})
         
-        # Update status since we successfully connected
-        db_status['connected'] = True
-        db_status['message'] = 'Connected successfully'
-        
-        annotations = kuzu_manager.query_all_annotations()
-        kuzu_manager.close()
-        
-        # Format annotations for frontend
-        formatted_annotations = []
-        for annotation in annotations:
-            fecha = annotation['fecha']
-            if isinstance(fecha, datetime):
-                fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
-            else:
-                fecha_str = str(fecha) if fecha else "Unknown"
-                
-            formatted_annotations.append({
-                'id': annotation['id'],
-                'type': annotation['tipo'],
-                'content': annotation['comentario'],
-                'date': fecha_str
-            })
-        
-        return jsonify({'success': True, 'annotations': formatted_annotations})
+        try:
+            # Update status since we successfully connected
+            db_status['connected'] = True
+            db_status['message'] = 'Connected successfully'
+            
+            annotations = kuzu_manager.query_all_annotations()
+            
+            # Format annotations for frontend
+            formatted_annotations = []
+            for annotation in annotations:
+                fecha = annotation['fecha']
+                if isinstance(fecha, datetime):
+                    fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
+                else:
+                    fecha_str = str(fecha) if fecha else "Unknown"
+                    
+                formatted_annotations.append({
+                    'id': annotation['id'],
+                    'type': annotation['tipo'],
+                    'content': annotation['comentario'],
+                    'date': fecha_str
+                })
+            
+            return jsonify({'success': True, 'annotations': formatted_annotations})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         db_status['connected'] = False
@@ -216,32 +221,34 @@ def api_structures():
         if not conn:
             return jsonify({'success': False, 'message': 'Could not connect to database'})
         
-        # Update status since we successfully connected
-        db_status['connected'] = True
-        db_status['message'] = 'Connected successfully'
-        
-        structures = kuzu_manager.query_all_estructuras()
-        kuzu_manager.close()
-        
-        # Format structures for frontend
-        formatted_structures = []
-        for structure in structures:
-            fecha = structure['fecha_creacion']
-            if isinstance(fecha, datetime):
-                fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
-            else:
-                fecha_str = str(fecha) if fecha else "Unknown"
-                
-            formatted_structures.append({
-                'id': structure['id'],
-                'name': structure['nombre'],
-                'type': structure['tipo'],
-                'description': structure['descripcion'],
-                'polygon': structure['poligono'],
-                'date': fecha_str
-            })
-        
-        return jsonify({'success': True, 'structures': formatted_structures})
+        try:
+            # Update status since we successfully connected
+            db_status['connected'] = True
+            db_status['message'] = 'Connected successfully'
+            
+            structures = kuzu_manager.query_all_estructuras()
+            
+            # Format structures for frontend
+            formatted_structures = []
+            for structure in structures:
+                fecha = structure['fecha_creacion']
+                if isinstance(fecha, datetime):
+                    fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
+                else:
+                    fecha_str = str(fecha) if fecha else "Unknown"
+                    
+                formatted_structures.append({
+                    'id': structure['id'],
+                    'name': structure['nombre'],
+                    'type': structure['tipo'],
+                    'description': structure['descripcion'],
+                    'polygon': structure['poligono'],
+                    'date': fecha_str
+                })
+            
+            return jsonify({'success': True, 'structures': formatted_structures})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         db_status['connected'] = False
@@ -281,24 +288,26 @@ def api_check_coordinates():
         if not conn:
             raise Exception("Could not connect to database")
         
-        intersecting = kuzu_manager.check_coordinate_in_structure(x, y)
-        kuzu_manager.close()
-        
-        if intersecting:
-            structure_names = [s['nombre'] for s in intersecting]
-            return jsonify({
-                'success': True,
-                'usable': False,
-                'message': f"Blocked by: {', '.join(structure_names)}",
-                'structures': structure_names
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'usable': True,
-                'message': 'Coordinates are usable',
-                'structures': []
-            })
+        try:
+            intersecting = kuzu_manager.check_coordinate_in_structure(x, y)
+            
+            if intersecting:
+                structure_names = [s['nombre'] for s in intersecting]
+                return jsonify({
+                    'success': True,
+                    'usable': False,
+                    'message': f"Blocked by: {', '.join(structure_names)}",
+                    'structures': structure_names
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'usable': True,
+                    'message': 'Coordinates are usable',
+                    'structures': []
+                })
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
             
     except ValueError:
         return jsonify({'success': False, 'message': 'Invalid coordinate values'})
@@ -332,62 +341,75 @@ def api_add_plant():
         if not conn:
             return jsonify({'success': False, 'message': 'Could not connect to database'})
         
-        # Update status since we successfully connected
-        db_status['connected'] = True
-        db_status['message'] = 'Connected successfully'
-        
-        intersecting = kuzu_manager.check_coordinate_in_structure(x_coord, y_coord)
-        if intersecting and not data.get('force_add', False):
-            structure_names = [s['nombre'] for s in intersecting]
-            kuzu_manager.close()
-            return jsonify({
-                'success': False,
-                'needs_confirmation': True,
-                'message': f"Coordinates intersect with structures: {', '.join(structure_names)}. Add anyway?",
-                'structures': structure_names
+        try:
+            # Update status since we successfully connected
+            db_status['connected'] = True
+            db_status['message'] = 'Connected successfully'
+            
+            intersecting = kuzu_manager.check_coordinate_in_structure(x_coord, y_coord)
+            if intersecting and not data.get('force_add', False):
+                structure_names = [s['nombre'] for s in intersecting]
+                return jsonify({
+                    'success': False,
+                    'needs_confirmation': True,
+                    'message': f"Coordinates intersect with structures: {', '.join(structure_names)}. Add anyway?",
+                    'structures': structure_names
+                })
+            
+            # Create the plant
+            create_plant_query = """
+            CREATE (p:Planta {
+                id: $id,
+                fecha_siembra: $fecha_siembra,
+                coordenadas_x: $coordenadas_x,
+                coordenadas_y: $coordenadas_y
             })
-        
-        # Create the plant
-        create_plant_query = """
-        CREATE (p:Planta {
-            id: $id,
-            fecha_siembra: $fecha_siembra,
-            coordenadas_x: $coordenadas_x,
-            coordenadas_y: $coordenadas_y
-        })
-        """
-        
-        kuzu_manager.execute_query(create_plant_query, {
-            'id': plant_id,
-            'fecha_siembra': datetime.now().date(),  # Use date() instead of datetime
-            'coordenadas_x': x_coord,
-            'coordenadas_y': y_coord
-        })
-        
-        # Create relationship with hortaliza
-        relate_query = """
-        MATCH (p:Planta {id: $planta_id}), (h:Hortaliza {id: $hortaliza_id})
-        CREATE (p)-[:IS_OF_TYPE {fecha_relacion: $fecha}]->(h)
-        """
-        
-        kuzu_manager.execute_query(relate_query, {
-            'planta_id': plant_id,
-            'hortaliza_id': plant_type_id,
-            'fecha': datetime.now()
-        })
-        
-        # Create relationship with default garden
-        garden_relate_query = """
-        MATCH (p:Planta {id: $planta_id}), (h:Huerta {id: "huerta_default"})
-        CREATE (p)-[:PART_OF {fecha_relacion: $fecha}]->(h)
-        """
-        
-        kuzu_manager.execute_query(garden_relate_query, {
-            'planta_id': plant_id,
-            'fecha': datetime.now()
-        })
-        
-        kuzu_manager.close()
+            """
+            
+            kuzu_manager.execute_query(create_plant_query, {
+                'id': plant_id,
+                'fecha_siembra': datetime.now().date(),  # Use date() instead of datetime
+                'coordenadas_x': x_coord,
+                'coordenadas_y': y_coord
+            }, connection=conn)
+            
+            # Create relationship with hortaliza
+            relate_query = """
+            MATCH (p:Planta {id: $planta_id}), (h:Hortaliza {id: $hortaliza_id})
+            CREATE (p)-[:IS_OF_TYPE {fecha_relacion: $fecha}]->(h)
+            """
+            
+            kuzu_manager.execute_query(relate_query, {
+                'planta_id': plant_id,
+                'hortaliza_id': plant_type_id,
+                'fecha': datetime.now()
+            }, connection=conn)
+            
+            # Create relationship with default garden
+            garden_relate_query = """
+            MATCH (p:Planta {id: $planta_id}), (h:Huerta {id: "huerta_default"})
+            CREATE (p)-[:PART_OF {fecha_relacion: $fecha}]->(h)
+            """
+            
+            kuzu_manager.execute_query(garden_relate_query, {
+                'planta_id': plant_id,
+                'fecha': datetime.now()
+            }, connection=conn)
+            
+            # Return the created plant object for frontend
+            return jsonify({
+                'success': True,
+                'message': f'Plant {plant_id} added successfully!',
+                'plant': {
+                    'id': plant_id,
+                    'type': hortaliza_name,
+                    'x': x_coord,
+                    'y': y_coord,
+                    'date': datetime.now().strftime("%Y-%m-%d %H:%M")
+                }
+            })
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
         # Return the created plant object for frontend
         return jsonify({
@@ -423,18 +445,20 @@ def api_remove_plant_by_id(plant_id):
         if not conn:
             raise Exception("Could not connect to database")
         
-        # Remove plant and all its relationships
-        remove_query = """
-        MATCH (p:Planta {id: $plant_id})
-        DETACH DELETE p
-        """
-        kuzu_manager.execute_query(remove_query, {'plant_id': plant_id})
-        kuzu_manager.close()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Plant {plant_id} removed successfully'
-        })
+        try:
+            # Remove plant and all its relationships
+            remove_query = """
+            MATCH (p:Planta {id: $plant_id})
+            DETACH DELETE p
+            """
+            kuzu_manager.execute_query(remove_query, {'plant_id': plant_id}, connection=conn)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Plant {plant_id} removed successfully'
+            })
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
@@ -457,18 +481,20 @@ def api_remove_plant():
         if not conn:
             raise Exception("Could not connect to database")
         
-        # Remove plant and all its relationships
-        remove_query = """
-        MATCH (p:Planta {id: $plant_id})
-        DETACH DELETE p
-        """
-        kuzu_manager.execute_query(remove_query, {'plant_id': plant_id})
-        kuzu_manager.close()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Plant {plant_id} removed successfully'
-        })
+        try:
+            # Remove plant and all its relationships
+            remove_query = """
+            MATCH (p:Planta {id: $plant_id})
+            DETACH DELETE p
+            """
+            kuzu_manager.execute_query(remove_query, {'plant_id': plant_id}, connection=conn)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Plant {plant_id} removed successfully'
+            })
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
@@ -498,20 +524,23 @@ def api_add_annotation():
         if not conn:
             raise Exception("Could not connect to database")
         
-        success = kuzu_manager.add_annotation(
-            tipo=annotation_type,
-            comentario=comentario,
-            target_type=target,
-            target_id=target_id
-        )
-        kuzu_manager.close()
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Annotation added successfully!'
-            })
-        else:
+        try:
+            success = kuzu_manager.add_annotation(
+                tipo=annotation_type,
+                comentario=comentario,
+                target_type=target,
+                target_id=target_id
+            )
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Annotation added successfully!'
+                })
+            else:
+                raise Exception("Failed to add annotation")
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
             raise Exception("Failed to add annotation to database")
         
     except Exception as e:
@@ -529,42 +558,43 @@ def api_garden_stats():
         if not conn:
             raise Exception("Could not connect to database")
         
-        stats = {}
-        
-        # Get basic statistics
-        queries = [
-            ("plants", "MATCH (p:Planta) RETURN count(p)"),
-            ("gardens", "MATCH (hu:Huerta) RETURN count(hu)"),
-            ("vegetable_types", "MATCH (h:Hortaliza) RETURN count(h)"),
-            ("annotations", "MATCH (a:Anotation) RETURN count(a)"),
-            ("structures", "MATCH (e:Estructura) RETURN count(e)"),
-        ]
-        
-        for name, query in queries:
-            try:
-                result = kuzu_manager.execute_query(query)
-                if result and result.has_next():
-                    count = result.get_next()[0]
-                    stats[name] = count
-                else:
-                    stats[name] = 0
-            except Exception as e:
-                stats[name] = f"Error: {e}"
-        
-        # Get structures info
         try:
-            estructuras = kuzu_manager.query_all_estructuras()
-            stats['structures_list'] = [{
-                'name': e['nombre'],
-                'type': e['tipo'],
-                'vertices': len(e['poligono']) if e['poligono'] else 0
-            } for e in estructuras] if estructuras else []
-        except:
-            stats['structures_list'] = []
-        
-        kuzu_manager.close()
-        
-        return jsonify({'success': True, 'stats': stats})
+            stats = {}
+            
+            # Get basic statistics
+            queries = [
+                ("plants", "MATCH (p:Planta) RETURN count(p)"),
+                ("gardens", "MATCH (hu:Huerta) RETURN count(hu)"),
+                ("vegetable_types", "MATCH (h:Hortaliza) RETURN count(h)"),
+                ("annotations", "MATCH (a:Anotation) RETURN count(a)"),
+                ("structures", "MATCH (e:Estructura) RETURN count(e)"),
+            ]
+            
+            for name, query in queries:
+                try:
+                    result = kuzu_manager.execute_query(query, connection=conn)
+                    if result and result.has_next():
+                        count = result.get_next()[0]
+                        stats[name] = count
+                    else:
+                        stats[name] = 0
+                except Exception as e:
+                    stats[name] = f"Error: {e}"
+            
+            # Get structures info
+            try:
+                estructuras = kuzu_manager.query_all_estructuras()
+                stats['structures_list'] = [{
+                    'name': e['nombre'],
+                    'type': e['tipo'],
+                    'vertices': len(e['poligono']) if e['poligono'] else 0
+                } for e in estructuras] if estructuras else []
+            except:
+                stats['structures_list'] = []
+            
+            return jsonify({'success': True, 'stats': stats})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
@@ -587,18 +617,20 @@ def api_reset_db():
         if not conn:
             raise Exception("Could not connect to KuzuDB")
         
-        # Initialize schema and data
-        schema_success = kuzu_manager.initialize_schema()
-        if not schema_success:
-            raise Exception("Schema initialization failed")
-        
-        kuzu_manager.load_initial_data()
-        kuzu_manager.close()
-        
-        db_status['connected'] = True
-        db_status['message'] = 'Database reset and reinitialized'
-        
-        return jsonify({'success': True, 'message': 'Database reset successfully!'})
+        try:
+            # Initialize schema and data
+            schema_success = kuzu_manager.initialize_schema()
+            if not schema_success:
+                raise Exception("Schema initialization failed")
+            
+            kuzu_manager.load_initial_data()
+            
+            db_status['connected'] = True
+            db_status['message'] = 'Database reset and reinitialized'
+            
+            return jsonify({'success': True, 'message': 'Database reset successfully!'})
+        finally:
+            kuzu_manager.close(conn)  # Pass the specific connection to close
         
     except Exception as e:
         db_status['connected'] = False
