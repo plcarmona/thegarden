@@ -84,8 +84,8 @@ def query_database():
     """Interactive query interface"""
     print("🔍 Enter your Cypher queries (type 'exit' to return to main menu):")
     print("Examples:")
-    print("  MATCH (h:Hortaliza) RETURN h.nombre LIMIT 5")
-    print("  MATCH (p:Planta) RETURN count(p)")
+    print("  MATCH (p:Plant) RETURN p.name LIMIT 5")
+    print("  MATCH (p:Plant) RETURN count(p)")
     print()
     
     conn = kuzu_manager.connect()
