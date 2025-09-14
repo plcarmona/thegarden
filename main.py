@@ -164,6 +164,96 @@ def search_by_coordinates():
         print(f"❌ Error searching: {e}")
 
 
+def show_structures():
+    """Show all garden structures and unusable areas"""
+    print("🏗️ Garden Structures and Unusable Areas:")
+    
+    conn = kuzu_manager.connect()
+    if not conn:
+        print("❌ Could not connect to database")
+        return
+    
+    try:
+        estructuras = kuzu_manager.query_all_estructuras()
+        
+        if estructuras:
+            print(f"\n✅ Found {len(estructuras)} structures:")
+            for estructura in estructuras:
+                print(f"\n  🏗️ {estructura['nombre']} ({estructura['id']})")
+                print(f"     Type: {estructura['tipo']}")
+                print(f"     Description: {estructura['descripcion']}")
+                print(f"     Polygon: {len(estructura['poligono'])} vertices")
+                # Show first few vertices
+                vertices_str = ", ".join([f"({v[0]:.1f}, {v[1]:.1f})" for v in estructura['poligono'][:3]])
+                if len(estructura['poligono']) > 3:
+                    vertices_str += ", ..."
+                print(f"     Vertices: {vertices_str}")
+                print(f"     Created: {estructura['fecha_creacion']}")
+        else:
+            print("🔍 No structures found in database")
+            
+    except Exception as e:
+        print(f"❌ Error listing structures: {e}")
+    finally:
+        kuzu_manager.close()
+
+
+def check_coordinate_usability():
+    """Check if coordinates are in an unusable area"""
+    try:
+        x = float(input("Enter X coordinate: "))
+        y = float(input("Enter Y coordinate: "))
+        
+        print(f"\n🔍 Checking if coordinates ({x}, {y}) are usable for planting...")
+        
+        conn = kuzu_manager.connect()
+        if not conn:
+            print("❌ Could not connect to database")
+            return
+        
+        try:
+            intersecting = kuzu_manager.check_coordinate_in_structure(x, y)
+            
+            if intersecting:
+                print(f"❌ Coordinates ({x}, {y}) are NOT usable for planting!")
+                print(f"   Intersects with {len(intersecting)} structure(s):")
+                for estructura in intersecting:
+                    print(f"   - {estructura['nombre']} ({estructura['tipo']})")
+                    print(f"     {estructura['descripcion']}")
+            else:
+                print(f"✅ Coordinates ({x}, {y}) are USABLE for planting!")
+                print("   No structures blocking this area.")
+                
+        finally:
+            kuzu_manager.close()
+            
+    except ValueError:
+        print("❌ Invalid coordinate values. Please enter numbers.")
+    except Exception as e:
+        print(f"❌ Error checking coordinates: {e}")
+
+
+def reload_toml_config():
+    """Reload TOML configuration and reinitialize database"""
+    print("🔄 Reloading TOML configuration...")
+    
+    try:
+        from database.toml_loader import toml_loader
+        toml_loader.reload()
+        
+        if toml_loader.validate_config():
+            print("✅ TOML configuration reloaded successfully")
+            
+            choice = input("Do you want to reinitialize the database with new config? (y/n): ").lower()
+            if choice == 'y':
+                initialize_database()
+        else:
+            print("❌ TOML configuration validation failed")
+            
+    except Exception as e:
+        print(f"❌ Error reloading TOML config: {e}")
+
+
 def show_database_info():
     """Show database information and statistics"""
     print("📊 Database Information:")
@@ -188,6 +278,7 @@ def show_database_info():
             ("Total Gardens", "MATCH (hu:Huerta) RETURN count(hu)"),
             ("Total Vegetable Types", "MATCH (h:Hortaliza) RETURN count(h)"),
             ("Total Annotations", "MATCH (a:Anotation) RETURN count(a)"),
+            ("Total Structures", "MATCH (e:Estructura) RETURN count(e)"),
         ]
         
         for name, query in queries:
@@ -217,6 +308,19 @@ def show_database_info():
                 print("   No plants found")
         except Exception as e:
             print(f"   Error listing plants: {e}")
+            
+        # List all structures  
+        print("\n🏗️ Structures in database:")
+        try:
+            estructuras = kuzu_manager.query_all_estructuras()
+            if estructuras:
+                for estructura in estructuras:
+                    vertices_count = len(estructura['poligono']) if estructura['poligono'] else 0
+                    print(f"   - {estructura['nombre']} ({estructura['tipo']}) - {vertices_count} vertices")
+            else:
+                print("   No structures found")
+        except Exception as e:
+            print(f"   Error listing structures: {e}")
         
     except Exception as e:
         print(f"❌ Error getting database info: {e}")
@@ -239,9 +343,12 @@ def main():
         print("2. Query database")
         print("3. Search plants by coordinates")
         print("4. Show database info")
-        print("5. Exit")
+        print("5. Show garden structures")
+        print("6. Check coordinate usability")
+        print("7. Reload TOML configuration")
+        print("8. Exit")
         
-        choice = input("\nEnter your choice (1-5): ").strip()
+        choice = input("\nEnter your choice (1-8): ").strip()
         
         if choice == '1':
             initialize_database()
@@ -252,10 +359,16 @@ def main():
         elif choice == '4':
             show_database_info()
         elif choice == '5':
+            show_structures()
+        elif choice == '6':
+            check_coordinate_usability()
+        elif choice == '7':
+            reload_toml_config()
+        elif choice == '8':
             print("👋 Goodbye!")
             break
         else:
-            print("❌ Invalid choice. Please enter 1-5.")
+            print("❌ Invalid choice. Please enter 1-8.")
 
 
 if __name__ == "__main__":

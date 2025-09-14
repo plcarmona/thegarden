@@ -45,6 +45,16 @@ CREATE NODE TABLE Anotation (
     fecha TIMESTAMP
 );
 
+-- Estructura: Áreas no utilizables del jardín (polígonos)
+CREATE NODE TABLE Estructura (
+    id STRING PRIMARY KEY,
+    nombre STRING,
+    tipo STRING,
+    descripcion STRING,
+    poligono DOUBLE[][],
+    fecha_creacion TIMESTAMP
+);
+
 -- =============================================
 -- TABLAS DE RELACIONES (RELATIONSHIP TABLES)
 -- =============================================
@@ -76,6 +86,12 @@ CREATE REL TABLE HAS_ANOTATION_HUERTA (
 -- HAS_ANOTATION_HORTALIZA: Hortaliza -> Anotation (una hortaliza tiene anotaciones)
 CREATE REL TABLE HAS_ANOTATION_HORTALIZA (
     FROM Hortaliza TO Anotation,
+    fecha_relacion TIMESTAMP
+);
+
+-- BLOCKS_AREA: Estructura -> Huerta (una estructura bloquea área de la huerta)
+CREATE REL TABLE BLOCKS_AREA (
+    FROM Estructura TO Huerta,
     fecha_relacion TIMESTAMP
 );
 

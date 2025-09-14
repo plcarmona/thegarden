@@ -6,6 +6,7 @@ import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
+from .toml_loader import toml_loader
 
 
 class KuzuDBManager:
@@ -51,7 +52,7 @@ class KuzuDBManager:
     
     def is_available(self) -> bool:
         """Verificar si KuzuDB está disponible y conectado"""
-        return self._kuzu_available and self.conn is not None
+        return self._kuzu_available
     
     def initialize_schema(self):
         """Inicializar schema desde archivo SQL"""
@@ -108,12 +109,29 @@ class KuzuDBManager:
             print(f"❌ Error general inicializando schema: {e}")
     
     def load_initial_data(self):
-        """Cargar datos iniciales desde archivo de semillas"""
+        """Cargar datos iniciales desde TOML y archivos de semillas"""
         if not self.is_available():
             print("⚠️ KuzuDB no disponible, saltando carga de datos iniciales")
             return
             
         conn = self.connect()
+        
+        # First load basic data (garden) from SQL seeds
+        self._load_sql_seeds()
+        
+        # Then load hortalizas from TOML
+        self._load_hortalizas_from_toml()
+        
+        # Load structures from TOML
+        self._load_estructuras_from_toml()
+        
+        # Create relationships for sample plants
+        self._create_sample_relationships()
+        
+        print("✓ Todos los datos iniciales cargados")
+    
+    def _load_sql_seeds(self):
+        """Load basic data from SQL seeds file"""
         seeds_path = "database/seeds/initial_data.sql"
         
         if not os.path.exists(seeds_path):
@@ -121,27 +139,153 @@ class KuzuDBManager:
             return
         
         try:
+            conn = self.connect()
             with open(seeds_path, "r", encoding="utf-8") as f:
                 seeds_content = f.read()
             
-            # Dividir por comandos
+            # Only load huerta, plantas and anotaciones from SQL, skip hortalizas
             commands = [cmd.strip() for cmd in seeds_content.split(';') if cmd.strip()]
             
             for command in commands:
-                # Saltar comentarios
-                if command.startswith('--') or not command:
+                # Skip comentarios and hortalizas creation
+                if (command.startswith('--') or not command or 
+                    'CREATE (h:Hortaliza' in command or
+                    'Hortaliza {' in command):
                     continue
                 try:
                     conn.execute(command)
-                    print(f"✓ Datos cargados: {command[:50]}...")
+                    print(f"✓ SQL datos cargados: {command[:50]}...")
                 except Exception as e:
-                    print(f"⚠️ Error cargando datos (puede ser normal si ya existen): {e}")
-                    # No fallar, los datos pueden ya existir
+                    print(f"⚠️ Error cargando SQL (puede ser normal): {e}")
                     
-            print("✓ Datos iniciales cargados")
-            
         except Exception as e:
-            print(f"❌ Error general cargando datos iniciales: {e}")
+            print(f"❌ Error general cargando SQL seeds: {e}")
+    
+    def _load_hortalizas_from_toml(self):
+        """Load hortalizas from TOML configuration"""
+        try:
+            hortalizas = toml_loader.get_hortalizas()
+            conn = self.connect()
+            
+            for hortaliza in hortalizas:
+                # Convert arrays to proper format for KuzuDB
+                plagas_str = str(hortaliza.get('plagas_comunes', []))
+                cuidados_str = str(hortaliza.get('cuidados', []))
+                
+                query = """
+                CREATE (h:Hortaliza {
+                    id: $id,
+                    nombre: $nombre,
+                    descripcion: $descripcion,
+                    ciclo_dias: $ciclo_dias,
+                    siembra_mes_inicio: $siembra_mes_inicio,
+                    siembra_mes_fin: $siembra_mes_fin,
+                    plagas_comunes: $plagas_comunes,
+                    cuidados: $cuidados,
+                    tamano_promedio: $tamano_promedio,
+                    distancia_min: $distancia_min
+                })
+                """
+                
+                params = {
+                    'id': hortaliza['id'],
+                    'nombre': hortaliza['nombre'],
+                    'descripcion': hortaliza['descripcion'],
+                    'ciclo_dias': hortaliza['ciclo_dias'],
+                    'siembra_mes_inicio': hortaliza['siembra_mes_inicio'],
+                    'siembra_mes_fin': hortaliza['siembra_mes_fin'],
+                    'plagas_comunes': hortaliza.get('plagas_comunes', []),
+                    'cuidados': hortaliza.get('cuidados', []),
+                    'tamano_promedio': hortaliza.get('tamano_promedio', 0.0),
+                    'distancia_min': hortaliza.get('distancia_min', 0.0)
+                }
+                
+                try:
+                    conn.execute(query, params)
+                    print(f"✓ Hortaliza cargada desde TOML: {hortaliza['nombre']}")
+                except Exception as e:
+                    print(f"⚠️ Error cargando hortaliza {hortaliza['nombre']}: {e}")
+                    
+        except Exception as e:
+            print(f"❌ Error general cargando hortalizas desde TOML: {e}")
+    
+    def _load_estructuras_from_toml(self):
+        """Load structures from TOML configuration"""
+        try:
+            estructuras = toml_loader.get_estructuras()
+            conn = self.connect()
+            
+            for estructura in estructuras:
+                query = """
+                CREATE (e:Estructura {
+                    id: $id,
+                    nombre: $nombre,
+                    tipo: $tipo,
+                    descripcion: $descripcion,
+                    poligono: $poligono,
+                    fecha_creacion: $fecha_creacion
+                })
+                """
+                
+                params = {
+                    'id': estructura['id'],
+                    'nombre': estructura['nombre'],
+                    'tipo': estructura['tipo'],
+                    'descripcion': estructura.get('descripcion', ''),
+                    'poligono': estructura['poligono'],
+                    'fecha_creacion': datetime.now()
+                }
+                
+                try:
+                    conn.execute(query, params)
+                    print(f"✓ Estructura cargada desde TOML: {estructura['nombre']}")
+                    
+                    # Create relationship with default garden
+                    rel_query = """
+                    MATCH (e:Estructura {id: $estructura_id}), (h:Huerta {id: "huerta_default"})
+                    CREATE (e)-[:BLOCKS_AREA {fecha_relacion: $fecha}]->(h)
+                    """
+                    conn.execute(rel_query, {
+                        'estructura_id': estructura['id'],
+                        'fecha': datetime.now()
+                    })
+                    print(f"✓ Relación estructura-huerta creada: {estructura['nombre']}")
+                    
+                except Exception as e:
+                    print(f"⚠️ Error cargando estructura {estructura['nombre']}: {e}")
+                    
+        except Exception as e:
+            print(f"❌ Error general cargando estructuras desde TOML: {e}")
+    
+    def _create_sample_relationships(self):
+        """Create relationships for sample plants with TOML-loaded hortalizas"""
+        try:
+            conn = self.connect()
+            
+            # Sample plant relationships (matching the original SQL)
+            relationships = [
+                ("tomate_001", 1),      # Tomate
+                ("lechuga_001", 2),     # Lechuga  
+                ("zanahoria_001", 3),   # Zanahoria
+            ]
+            
+            for planta_id, hortaliza_id in relationships:
+                query = """
+                MATCH (p:Planta {id: $planta_id}), (h:Hortaliza {id: $hortaliza_id})
+                CREATE (p)-[:IS_OF_TYPE {fecha_relacion: $fecha}]->(h)
+                """
+                try:
+                    conn.execute(query, {
+                        'planta_id': planta_id,
+                        'hortaliza_id': hortaliza_id,
+                        'fecha': datetime.now()
+                    })
+                    print(f"✓ Relación planta-hortaliza creada: {planta_id} -> {hortaliza_id}")
+                except Exception as e:
+                    print(f"⚠️ Error creando relación {planta_id}-{hortaliza_id}: {e}")
+                    
+        except Exception as e:
+            print(f"❌ Error general creando relaciones de ejemplo: {e}")
     
     def execute_query(self, query: str, parameters: Dict = None):
         """Ejecutar consulta con parámetros opcionales"""
@@ -169,7 +313,7 @@ class KuzuDBManager:
         MATCH (p:Planta)-[:IS_OF_TYPE]->(h:Hortaliza)
         WHERE abs(p.coordenadas_x - $x) <= $radius 
         AND abs(p.coordenadas_y - $y) <= $radius
-        RETURN p.id, p.fecha_siembra, p.estado, p.coordenadas_x, p.coordenadas_y,
+        RETURN p.id, p.fecha_siembra, p.fecha_cosecha, p.coordenadas_x, p.coordenadas_y,
                h.nombre, h.descripcion,
                sqrt(pow(p.coordenadas_x - $x, 2) + pow(p.coordenadas_y - $y, 2)) as distancia
         ORDER BY distancia
@@ -186,7 +330,7 @@ class KuzuDBManager:
                     plantas.append({
                         "id": row[0],
                         "fecha_siembra": row[1], 
-                        "estado": row[2],
+                        "fecha_cosecha": row[2],
                         "coordenadas_x": row[3],
                         "coordenadas_y": row[4],
                         "hortaliza_nombre": row[5],
@@ -199,6 +343,71 @@ class KuzuDBManager:
         except Exception as e:
             print(f"Error en consulta por coordenadas: {e}")
             return []
+    
+    def query_all_estructuras(self) -> List[Dict]:
+        """Get all structures/unusable areas"""
+        if not self.is_available():
+            return []
+            
+        query = """
+        MATCH (e:Estructura)
+        RETURN e.id, e.nombre, e.tipo, e.descripcion, e.poligono, e.fecha_creacion
+        ORDER BY e.nombre
+        """
+        
+        try:
+            result = self.execute_query(query)
+            estructuras = []
+            
+            if result and result.has_next():
+                while result.has_next():
+                    row = result.get_next()
+                    estructuras.append({
+                        "id": row[0],
+                        "nombre": row[1],
+                        "tipo": row[2],
+                        "descripcion": row[3],
+                        "poligono": row[4],
+                        "fecha_creacion": row[5]
+                    })
+                    
+            return estructuras
+            
+        except Exception as e:
+            print(f"Error consultando estructuras: {e}")
+            return []
+    
+    def check_coordinate_in_structure(self, x: float, y: float) -> List[Dict]:
+        """Check if coordinates are inside any structure (unusable area)"""
+        if not self.is_available():
+            return []
+            
+        # Get all structures and check manually (KuzuDB doesn't have built-in point-in-polygon)
+        estructuras = self.query_all_estructuras()
+        intersecting = []
+        
+        for estructura in estructuras:
+            if self._point_in_polygon(x, y, estructura['poligono']):
+                intersecting.append(estructura)
+        
+        return intersecting
+    
+    def _point_in_polygon(self, x: float, y: float, polygon: List[List[float]]) -> bool:
+        """Ray casting algorithm to check if point is inside polygon"""
+        if not polygon or len(polygon) < 3:
+            return False
+            
+        n = len(polygon)
+        inside = False
+        
+        j = n - 1
+        for i in range(n):
+            if ((polygon[i][1] > y) != (polygon[j][1] > y)) and \
+               (x < (polygon[j][0] - polygon[i][0]) * (y - polygon[i][1]) / (polygon[j][1] - polygon[i][1]) + polygon[i][0]):
+                inside = not inside
+            j = i
+            
+        return inside
     
     def close(self):
         """Cerrar conexión"""
