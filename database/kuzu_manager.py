@@ -37,7 +37,7 @@ class KuzuDBManager:
         if not self._kuzu_available:
             return None
             
-        if self.db is None:
+        if self.db is None or self.conn is None:
             try:
                 import kuzu
                 self.db = kuzu.Database(self.db_path)
@@ -191,11 +191,15 @@ class KuzuDBManager:
                 self.conn.close()
             except:
                 pass
+            finally:
+                self.conn = None
         if self.db:
             try:
                 self.db.close() 
             except:
                 pass
+            finally:
+                self.db = None
         print("✓ KuzuDB desconectado")
 
 
