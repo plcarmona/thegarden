@@ -109,10 +109,12 @@ def api_get_plants():
             ORDER BY p.id
         """)
         
+
         plants = []
         if result and result.has_next():
             while result.has_next():
                 row = result.get_next()
+
                 plant_date = row[4] if row[4] else "Unknown"
                 
                 # Format date for display
@@ -293,7 +295,6 @@ def api_remove_plant():
         MATCH (p:Planta {id: $plant_id})
         DETACH DELETE p
         """
-        
         kuzu_manager.execute_query(remove_query, {'plant_id': plant_id})
         kuzu_manager.close()
         

@@ -13,6 +13,10 @@ This project provides a CLI tool to:
 
 ## Features
 
+- **Web GUI Interface**: Modern HTML5 Canvas-based interface for visual garden management
+- **Interactive Visualization**: See plants, structures, and annotations on an interactive canvas
+- **Plant Management**: Add/remove plants with coordinate selection and type assignment
+- **Annotations System**: Create, view, and manage garden notes sorted by modification date
 - **TOML Configuration**: Load vegetable (hortalizas) data from `config/hortalizas.toml` instead of hardcoded values
 - **Garden Structures**: Define and manage unusable areas in the garden using polygon shapes
 - **Database Management**: Initialize KuzuDB with schema and TOML-based data
@@ -26,6 +30,7 @@ This project provides a CLI tool to:
 - Python 3.9+
 - KuzuDB (automatically installed)
 - TOML parsing library (automatically installed)
+- Flask and Flask-CORS (for web GUI)
 
 ## Installation
 
@@ -42,7 +47,28 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run the main application:
+### Quick Start (GUI - Recommended)
+Run the launcher script to choose between interfaces:
+```bash
+python launcher.py
+```
+
+### Web GUI (New!)
+For the best experience, use the web-based graphical interface:
+```bash
+python web_gui.py
+```
+Then open your browser to: http://localhost:5000
+
+The GUI provides:
+- **Interactive Canvas**: Visualize plants, structures, and annotations with HTML5 Canvas
+- **Plant Management**: Add/remove plants with drag-and-drop coordinate selection
+- **Annotations System**: Create and view annotations sorted by date (most recent first)
+- **Real-time Visualization**: See changes immediately on the canvas
+- **Database Integration**: Load and save data to/from the KuzuDB database
+
+### Command Line Interface
+For advanced users, run the traditional CLI:
 ```bash
 python main.py
 ```
@@ -189,7 +215,12 @@ Tests include:
 ## Development
 
 The codebase is structured as:
-- `main.py`: CLI interface with new structure management options
+- `launcher.py`: Interface selection launcher (CLI vs GUI)
+- `web_gui.py`: Flask web server for GUI interface
+- `gui/`: Web interface files (HTML, CSS, JavaScript)
+  - `index.html`: Main GUI interface with canvas
+  - `garden-gui.js`: JavaScript for canvas interaction and API calls
+- `main.py`: CLI interface with structure management options
 - `database/kuzu_manager.py`: KuzuDB connection and TOML-based data loading
 - `database/toml_loader.py`: TOML configuration parsing and validation
 - `config/hortalizas.toml`: Vegetable and structure definitions
