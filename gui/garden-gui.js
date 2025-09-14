@@ -726,16 +726,30 @@ class GardenGUI {
                 body: JSON.stringify(plantData)
             });
             
-            if (response.ok) {
-                const newPlant = await response.json();
+            const result = await response.json();
+            
+            if (result.success) {
+                // Add the new plant to the display
+                const newPlant = {
+                    id: result.id,
+                    x: result.x,
+                    y: result.y,
+                    vegetable_name: result.vegetable_name,
+                    planting_date: result.date
+                };
+                
                 this.plants.push(newPlant);
                 this.updateSidebar();
                 this.render();
                 closeModal('addPlantModal');
-                showNotification('Plant added successfully!', 'success');
+                showNotification(result.message || 'Plant added successfully!', 'success');
                 e.target.reset();
+                
+                // Exit plant mode after successful addition
+                this.currentTool = 'select';
+                this.updateAddPlantButton(false);
             } else {
-                throw new Error('Failed to add plant');
+                throw new Error(result.message || 'Failed to add plant');
             }
         } catch (error) {
             console.warn('Could not add via API, adding locally:', error);
@@ -894,6 +908,30 @@ async function initializeDatabase() {
         } catch (error) {
             console.warn('Could not initialize via API:', error);
             showNotification('Database initialization failed (API unavailable)', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+}
+
+async function resetDatabase() {
+    if (confirm('This will reset the database to its initial state, removing all added plants and data. Continue?')) {
+        showLoading(true);
+        updateStatus('Resetting database...');
+        
+        try {
+            const response = await fetch('/api/reset_db', { method: 'POST' });
+            const result = await response.json();
+            
+            if (result.success) {
+                await gardenGUI.loadDatabase();
+                showNotification('Database reset successfully!', 'success');
+            } else {
+                throw new Error(result.message || 'Failed to reset database');
+            }
+        } catch (error) {
+            console.warn('Could not reset via API:', error);
+            showNotification('Database reset failed (API unavailable)', 'error');
         } finally {
             showLoading(false);
         }
