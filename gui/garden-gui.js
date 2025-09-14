@@ -712,11 +712,41 @@ class GardenGUI {
         e.preventDefault();
         
         const formData = new FormData(e.target);
+        
+        // Get form values with validation
+        const plantTypeValue = formData.get('plantType');
+        const plantX = formData.get('plantX');
+        const plantY = formData.get('plantY');
+        const plantDate = formData.get('plantDate');
+        
+        // Validate required fields
+        if (!plantTypeValue || plantTypeValue === '') {
+            showNotification('Please select a plant type', 'error');
+            return;
+        }
+        
+        // Parse and validate coordinates
+        const x = parseFloat(plantX);
+        const y = parseFloat(plantY);
+        
+        if (isNaN(x) || isNaN(y)) {
+            showNotification('Invalid coordinates. Please enter valid numbers.', 'error');
+            return;
+        }
+        
+        // Parse vegetable ID (should be a number from the dropdown value)
+        const vegetableId = parseInt(plantTypeValue);
+        
+        if (isNaN(vegetableId)) {
+            showNotification('Invalid plant type selected', 'error');
+            return;
+        }
+        
         const plantData = {
-            vegetable_id: parseInt(formData.get('plantType')),
-            x: parseFloat(formData.get('plantX')),
-            y: parseFloat(formData.get('plantY')),
-            planting_date: formData.get('plantDate') || null
+            vegetable_id: vegetableId,
+            x: x,
+            y: y,
+            planting_date: plantDate || null
         };
         
         try {
@@ -748,28 +778,13 @@ class GardenGUI {
                 // Exit plant mode after successful addition
                 this.currentTool = 'select';
                 this.updateAddPlantButton(false);
+                this.updateCursor();
             } else {
                 throw new Error(result.message || 'Failed to add plant');
             }
         } catch (error) {
-            console.warn('Could not add via API, adding locally:', error);
-            
-            // Create mock plant for development
-            const vegetable = this.vegetables.find(v => v.id === plantData.vegetable_id);
-            const newPlant = {
-                id: `plant_${Date.now()}`,
-                x: plantData.x,
-                y: plantData.y,
-                vegetable_name: vegetable ? vegetable.name : 'Unknown',
-                planting_date: plantData.planting_date
-            };
-            
-            this.plants.push(newPlant);
-            this.updateSidebar();
-            this.render();
-            closeModal('addPlantModal');
-            showNotification('Plant added (local only)', 'success');
-            e.target.reset();
+            console.error('Error adding plant via API:', error);
+            showNotification(`Failed to add plant: ${error.message}`, 'error');
         }
     }
 
@@ -783,6 +798,17 @@ class GardenGUI {
             content: formData.get('annotationContent'),
             target: formData.get('annotationTarget')
         };
+        
+        // Validate required fields
+        if (!annotationData.content || !annotationData.content.trim()) {
+            showNotification('Please enter content for the annotation', 'error');
+            return;
+        }
+        
+        if (!annotationData.title || !annotationData.title.trim()) {
+            showNotification('Please enter a title for the annotation', 'error');
+            return;
+        }
         
         try {
             const response = await fetch('/api/add_annotation', {
@@ -815,23 +841,8 @@ class GardenGUI {
                 throw new Error(result.message || 'Failed to add annotation');
             }
         } catch (error) {
-            console.warn('Could not add via API, adding locally:', error);
-            
-            // Create mock annotation for development
-            const newAnnotation = {
-                id: `ann_${Date.now()}`,
-                title: annotationData.title,
-                content: annotationData.content,
-                type: annotationData.type,
-                created_date: new Date().toISOString().split('T')[0]
-            };
-            
-            this.annotations.push(newAnnotation);
-            this.updateSidebar();
-            this.render();
-            closeModal('addAnnotationModal');
-            showNotification('Annotation added (local only)', 'success');
-            e.target.reset();
+            console.error('Error adding annotation via API:', error);
+            showNotification(`Failed to add annotation: ${error.message}`, 'error');
         }
     }
 }
