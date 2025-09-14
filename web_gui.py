@@ -236,17 +236,15 @@ def api_add_plant():
             id: $id,
             fecha_siembra: $fecha_siembra,
             coordenadas_x: $coordenadas_x,
-            coordenadas_y: $coordenadas_y,
-            estado: $estado
+            coordenadas_y: $coordenadas_y
         })
         """
         
         kuzu_manager.execute_query(create_plant_query, {
             'id': plant_id,
-            'fecha_siembra': datetime.now(),
+            'fecha_siembra': datetime.now().date(),  # Use date() instead of datetime
             'coordenadas_x': x_coord,
-            'coordenadas_y': y_coord,
-            'estado': 'activo'
+            'coordenadas_y': y_coord
         })
         
         # Create relationship with hortaliza
