@@ -460,9 +460,50 @@ class GardenGUI {
                 fetch('/api/structures')
             ]);
             
-            this.plants = await plantsResponse.json();
-            this.annotations = await annotationsResponse.json();
-            this.structures = await structuresResponse.json();
+            // Handle plants data
+            const plantsData = await plantsResponse.json();
+            if (plantsData.success) {
+                this.plants = plantsData.plants.map(plant => ({
+                    id: plant.id,
+                    x: plant.x,
+                    y: plant.y,
+                    vegetable_name: plant.type,
+                    planting_date: plant.date
+                }));
+            } else {
+                console.warn('Plants API error:', plantsData.message);
+                this.plants = [];
+            }
+            
+            // Handle annotations data
+            const annotationsData = await annotationsResponse.json();
+            if (annotationsData.success) {
+                this.annotations = annotationsData.annotations.map(annotation => ({
+                    id: annotation.id,
+                    title: annotation.type,
+                    content: annotation.content,
+                    type: annotation.type,
+                    created_date: annotation.date
+                }));
+            } else {
+                console.warn('Annotations API error:', annotationsData.message);
+                this.annotations = [];
+            }
+            
+            // Handle structures data
+            const structuresData = await structuresResponse.json();
+            if (structuresData.success) {
+                this.structures = structuresData.structures.map(structure => ({
+                    id: structure.id,
+                    name: structure.name,
+                    type: structure.type,
+                    description: structure.description,
+                    polygon: structure.polygon
+                }));
+            } else {
+                console.warn('Structures API error:', structuresData.message);
+                this.structures = [];
+            }
             
             // Update UI
             this.updateSidebar();
@@ -726,27 +767,38 @@ class GardenGUI {
             type: formData.get('annotationType'),
             title: formData.get('annotationTitle'),
             content: formData.get('annotationContent'),
-            target: formData.get('annotationTarget'),
-            created_date: new Date().toISOString().split('T')[0]
+            target: formData.get('annotationTarget')
         };
         
         try {
-            const response = await fetch('/api/annotations', {
+            const response = await fetch('/api/add_annotation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(annotationData)
             });
             
-            if (response.ok) {
-                const newAnnotation = await response.json();
-                this.annotations.push(newAnnotation);
+            const result = await response.json();
+            if (result.success) {
+                // Reload annotations to get fresh data
+                const annotationsResponse = await fetch('/api/annotations');
+                const annotationsData = await annotationsResponse.json();
+                if (annotationsData.success) {
+                    this.annotations = annotationsData.annotations.map(annotation => ({
+                        id: annotation.id,
+                        title: annotation.type,
+                        content: annotation.content,
+                        type: annotation.type,
+                        created_date: annotation.date
+                    }));
+                }
+                
                 this.updateSidebar();
                 this.render();
                 closeModal('addAnnotationModal');
                 showNotification('Annotation added successfully!', 'success');
                 e.target.reset();
             } else {
-                throw new Error('Failed to add annotation');
+                throw new Error(result.message || 'Failed to add annotation');
             }
         } catch (error) {
             console.warn('Could not add via API, adding locally:', error);
@@ -754,9 +806,10 @@ class GardenGUI {
             // Create mock annotation for development
             const newAnnotation = {
                 id: `ann_${Date.now()}`,
-                ...annotationData,
-                x: 200 + Math.random() * 100, // Random position for demo
-                y: 200 + Math.random() * 100
+                title: annotationData.title,
+                content: annotationData.content,
+                type: annotationData.type,
+                created_date: new Date().toISOString().split('T')[0]
             };
             
             this.annotations.push(newAnnotation);
