@@ -100,13 +100,14 @@ def api_connect_db():
 @app.route('/api/plants')
 def api_get_plants():
     """Get all plants from database"""
-    if not db_status['connected']:
-        return jsonify({'success': False, 'message': 'Database not connected'})
-    
     try:
         conn = kuzu_manager.connect()
         if not conn:
-            raise Exception("Could not connect to database")
+            return jsonify({'success': False, 'message': 'Could not connect to database'})
+        
+        # Update status since we successfully connected
+        db_status['connected'] = True
+        db_status['message'] = 'Connected successfully'
         
         # Query all plants
         result = kuzu_manager.execute_query("""
@@ -139,6 +140,8 @@ def api_get_plants():
         return jsonify({'success': True, 'plants': plants})
         
     except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Connection failed: {str(e)}'
         return jsonify({'success': False, 'message': str(e)})
 
 
@@ -169,13 +172,14 @@ def api_initialize():
 @app.route('/api/annotations')
 def api_annotations():
     """Get all annotations from database"""
-    if not db_status['connected']:
-        return jsonify({'success': False, 'message': 'Database not connected'})
-    
     try:
         conn = kuzu_manager.connect()
         if not conn:
-            raise Exception("Could not connect to database")
+            return jsonify({'success': False, 'message': 'Could not connect to database'})
+        
+        # Update status since we successfully connected
+        db_status['connected'] = True
+        db_status['message'] = 'Connected successfully'
         
         annotations = kuzu_manager.query_all_annotations()
         kuzu_manager.close()
@@ -199,19 +203,22 @@ def api_annotations():
         return jsonify({'success': True, 'annotations': formatted_annotations})
         
     except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Connection failed: {str(e)}'
         return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/structures')
 def api_structures():
     """Get all structures from database"""
-    if not db_status['connected']:
-        return jsonify({'success': False, 'message': 'Database not connected'})
-    
     try:
         conn = kuzu_manager.connect()
         if not conn:
-            raise Exception("Could not connect to database")
+            return jsonify({'success': False, 'message': 'Could not connect to database'})
+        
+        # Update status since we successfully connected
+        db_status['connected'] = True
+        db_status['message'] = 'Connected successfully'
         
         structures = kuzu_manager.query_all_estructuras()
         kuzu_manager.close()
@@ -237,6 +244,8 @@ def api_structures():
         return jsonify({'success': True, 'structures': formatted_structures})
         
     except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Connection failed: {str(e)}'
         return jsonify({'success': False, 'message': str(e)})
 
 
@@ -300,9 +309,6 @@ def api_check_coordinates():
 @app.route('/api/plants', methods=['POST'])
 def api_add_plant():
     """Add a new plant to the database"""
-    if not db_status['connected']:
-        return jsonify({'success': False, 'message': 'Database not connected'})
-    
     try:
         data = request.json
         # Accept both vegetable_id and plant_type_id for compatibility
@@ -324,7 +330,11 @@ def api_add_plant():
         # Check coordinate usability
         conn = kuzu_manager.connect()
         if not conn:
-            raise Exception("Could not connect to database")
+            return jsonify({'success': False, 'message': 'Could not connect to database'})
+        
+        # Update status since we successfully connected
+        db_status['connected'] = True
+        db_status['message'] = 'Connected successfully'
         
         intersecting = kuzu_manager.check_coordinate_in_structure(x_coord, y_coord)
         if intersecting and not data.get('force_add', False):
@@ -394,6 +404,8 @@ def api_add_plant():
         })
         
     except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Connection failed: {str(e)}'
         return jsonify({'success': False, 'message': str(e)})
 
 
