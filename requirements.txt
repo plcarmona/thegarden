@@ -1,5 +1,2 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-jinja2==3.1.2
-python-multipart==0.0.6
 kuzu>=0.0.8
+pytest>=8.0.0
