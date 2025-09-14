@@ -14,6 +14,27 @@ import os
 from datetime import datetime
 from database.kuzu_manager import kuzu_manager
 from database.toml_loader import toml_loader
+import time
+import random
+
+def is_point_in_polygon(x, y, polygon):
+    """Check if a point is inside a polygon using ray casting algorithm"""
+    if not polygon or len(polygon) < 3:
+        return False
+    
+    n = len(polygon)
+    inside = False
+    
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    
+    return inside
 
 app = FastAPI(title="The Garden GUI", description="Garden Plant Management System", version="1.0.0")
 
@@ -29,11 +50,31 @@ class PlantCreateRequest(BaseModel):
     coordenadas_x: float
     coordenadas_y: float
 
+# Alternative plant request models for different frontend formats
+class PlantCreateRequestAlt1(BaseModel):
+    vegetable_id: int
+    x: float
+    y: float
+    planting_date: Optional[str] = None
+
+class PlantCreateRequestAlt2(BaseModel):
+    plant_type_id: int
+    x_coord: float
+    y_coord: float
+    force_add: Optional[bool] = False
+
 class AnnotationCreateRequest(BaseModel):
     tipo: str
     comentario: str
     entity_type: str  # 'planta', 'huerta', or 'hortaliza'
     entity_id: str
+
+# Alternative annotation request for different frontend format
+class AnnotationCreateRequestAlt(BaseModel):
+    type: str
+    content: str
+    target_type: Optional[str] = "garden"
+    target_id: Optional[str] = None
 
 class QueryRequest(BaseModel):
     query: str
@@ -102,7 +143,7 @@ async def get_plants():
         result = conn.execute("""
             MATCH (p:Planta)-[:IS_OF_TYPE]->(h:Hortaliza)
             RETURN p.id as plant_id, p.coordenadas_x as x, p.coordenadas_y as y, 
-                   h.id as hortaliza_id, h.nombre as hortaliza_name
+                   p.fecha_siembra as date, h.id as hortaliza_id, h.nombre as hortaliza_name
         """)
         
         plants = []
@@ -112,11 +153,13 @@ async def get_plants():
                 'id': row[0],
                 'x': row[1],
                 'y': row[2],
-                'hortaliza_id': row[3],
-                'hortaliza_name': row[4]
+                'date': row[3].isoformat() if row[3] else None,
+                'type': row[5],  # hortaliza_name for templates compatibility
+                'hortaliza_id': row[4],
+                'hortaliza_name': row[5]
             })
         
-        return plants
+        return {"success": True, "plants": plants}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving plants: {str(e)}")
@@ -126,20 +169,30 @@ async def get_hortalizas():
     """Get all vegetable types"""
     try:
         hortalizas = toml_loader.get_hortalizas()
-        return hortalizas
+        return {"success": True, "hortalizas": hortalizas}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving hortalizas: {str(e)}")
 
 @app.post("/api/plants")
-async def create_plant(plant: PlantCreateRequest):
-    """Create a new plant"""
+async def create_plant(plant: PlantCreateRequestAlt1):
+    """Create a new plant (garden-gui.js format)"""
     try:
         conn = kuzu_manager.connect()
         if not conn:
             raise HTTPException(status_code=500, detail="Database connection failed")
         
-        # Generate plant ID
-        plant_id = f"plant_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Generate unique plant ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        random_suffix = random.randint(1000, 9999)
+        plant_id = f"plant_{timestamp}_{random_suffix}"
+        
+        # Parse planting date if provided
+        fecha_siembra = datetime.now().date()
+        if plant.planting_date:
+            try:
+                fecha_siembra = datetime.strptime(plant.planting_date, '%Y-%m-%d').date()
+            except ValueError:
+                pass  # Use current date if parsing fails
         
         # Create plant
         conn.execute("""
@@ -151,9 +204,9 @@ async def create_plant(plant: PlantCreateRequest):
             })
         """, {
             'id': plant_id,
-            'fecha': datetime.now().date(),
-            'x': plant.coordenadas_x,
-            'y': plant.coordenadas_y
+            'fecha': fecha_siembra,
+            'x': plant.x,
+            'y': plant.y
         })
         
         # Create relationship with hortaliza
@@ -162,7 +215,7 @@ async def create_plant(plant: PlantCreateRequest):
             CREATE (p)-[:IS_OF_TYPE {fecha_relacion: $fecha}]->(h)
         """, {
             'plant_id': plant_id,
-            'hortaliza_id': plant.hortaliza_id,
+            'hortaliza_id': plant.vegetable_id,
             'fecha': datetime.now()
         })
         
@@ -175,10 +228,99 @@ async def create_plant(plant: PlantCreateRequest):
             'fecha': datetime.now()
         })
         
-        return {"success": True, "plant_id": plant_id, "message": "Plant created successfully"}
+        # Get vegetable name for response
+        result = conn.execute("""
+            MATCH (h:Hortaliza {id: $hortaliza_id})
+            RETURN h.nombre as name
+        """, {'hortaliza_id': plant.vegetable_id})
+        
+        vegetable_name = "Unknown"
+        if result.has_next():
+            vegetable_name = result.get_next()[0]
+        
+        return {
+            "success": True, 
+            "id": plant_id,
+            "x": plant.x,
+            "y": plant.y,
+            "vegetable_name": vegetable_name,
+            "date": fecha_siembra.isoformat(),
+            "message": "Plant created successfully"
+        }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating plant: {str(e)}")
+
+@app.post("/api/add_plant")
+async def add_plant(plant: PlantCreateRequestAlt2):
+    """Add a new plant (alternative endpoint for templates/index.html)"""
+    try:
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+        
+        # Check if coordinates are blocked by structures (if not force_add)
+        if not plant.force_add:
+            try:
+                estructuras = toml_loader.get_estructuras()
+                blocking_structures = []
+                for estructura in estructuras:
+                    polygon = estructura.get('poligono', [])
+                    if is_point_in_polygon(plant.x_coord, plant.y_coord, polygon):
+                        blocking_structures.append(estructura['nombre'])
+                
+                if blocking_structures:
+                    return {
+                        "success": False,
+                        "needs_confirmation": True,
+                        "message": f"Coordinates blocked by: {', '.join(blocking_structures)}. Do you want to add anyway?"
+                    }
+            except Exception as e:
+                print(f"Warning: Could not check structure blocking: {e}")
+        
+        # Generate unique plant ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        random_suffix = random.randint(1000, 9999)
+        plant_id = f"plant_{timestamp}_{random_suffix}"
+        
+        # Create plant
+        conn.execute("""
+            CREATE (p:Planta {
+                id: $id,
+                fecha_siembra: $fecha,
+                coordenadas_x: $x,
+                coordenadas_y: $y
+            })
+        """, {
+            'id': plant_id,
+            'fecha': datetime.now().date(),
+            'x': plant.x_coord,
+            'y': plant.y_coord
+        })
+        
+        # Create relationship with hortaliza
+        conn.execute("""
+            MATCH (p:Planta {id: $plant_id}), (h:Hortaliza {id: $hortaliza_id})
+            CREATE (p)-[:IS_OF_TYPE {fecha_relacion: $fecha}]->(h)
+        """, {
+            'plant_id': plant_id,
+            'hortaliza_id': plant.plant_type_id,
+            'fecha': datetime.now()
+        })
+        
+        # Create relationship with garden
+        conn.execute("""
+            MATCH (p:Planta {id: $plant_id}), (hu:Huerta {id: "huerta_principal"})
+            CREATE (p)-[:PART_OF {fecha_relacion: $fecha}]->(hu)
+        """, {
+            'plant_id': plant_id,
+            'fecha': datetime.now()
+        })
+        
+        return {"success": True, "plant_id": plant_id, "message": "Plant added successfully"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding plant: {str(e)}")
 
 @app.delete("/api/plants/{plant_id}")
 async def delete_plant(plant_id: str):
@@ -215,12 +357,16 @@ async def get_annotations():
             row = result.get_next()
             annotations.append({
                 'id': row[0],
+                'type': row[1],  # For garden-gui.js compatibility
+                'content': row[2],  # For garden-gui.js compatibility
+                'date': row[3].isoformat() if row[3] else None,
+                # Also keep original format for compatibility
                 'tipo': row[1],
                 'comentario': row[2],
                 'fecha': row[3].isoformat() if row[3] else None
             })
         
-        return annotations
+        return {"success": True, "annotations": annotations}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving annotations: {str(e)}")
@@ -233,8 +379,10 @@ async def create_annotation(annotation: AnnotationCreateRequest):
         if not conn:
             raise HTTPException(status_code=500, detail="Database connection failed")
         
-        # Generate annotation ID
-        annotation_id = f"annotation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Generate unique annotation ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        random_suffix = random.randint(1000, 9999)
+        annotation_id = f"annotation_{timestamp}_{random_suffix}"
         
         # Create annotation
         conn.execute("""
@@ -358,7 +506,7 @@ async def check_coordinate_usability(coord_request: CoordinateRequest):
         blocking_structures = []
         for estructura in estructuras:
             polygon = estructura.get('poligono', [])
-            if kuzu_manager.is_point_in_polygon(coord_request.x, coord_request.y, polygon):
+            if is_point_in_polygon(coord_request.x, coord_request.y, polygon):
                 blocking_structures.append(estructura['nombre'])
         
         is_usable = len(blocking_structures) == 0
@@ -377,9 +525,175 @@ async def get_structures():
     """Get all garden structures"""
     try:
         estructuras = toml_loader.get_estructuras()
-        return estructuras
+        return {"success": True, "structures": estructuras}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving structures: {str(e)}")
+
+@app.post("/api/connect_db")
+async def connect_database():
+    """Connect to the database (alias for initialize_db)"""
+    try:
+        if kuzu_manager.connect():
+            db_status['connected'] = True
+            db_status['message'] = 'Database connected successfully'
+            return {"success": True, "message": "Database connected successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to connect to database")
+    except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Error connecting to database: {str(e)}'
+        raise HTTPException(status_code=500, detail=f"Error connecting to database: {str(e)}")
+
+@app.get("/api/check_coordinates")
+async def check_coordinates(x: float, y: float):
+    """Check if coordinates are usable (alias for check_usability)"""
+    try:
+        coord_request = CoordinateRequest(x=x, y=y)
+        result = await check_coordinate_usability(coord_request)
+        
+        return {
+            "success": True,
+            "usable": result["usable"],
+            "message": result["message"],
+            "blocking_structures": result.get("blocking_structures", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking coordinates: {str(e)}")
+
+@app.post("/api/remove_plant")
+async def remove_plant(request: dict):
+    """Remove a plant (wrapper for DELETE endpoint)"""
+    try:
+        plant_id = request.get("plant_id")
+        if not plant_id:
+            raise HTTPException(status_code=400, detail="plant_id is required")
+        
+        result = await delete_plant(plant_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing plant: {str(e)}")
+
+@app.get("/api/garden_stats")
+async def get_garden_stats():
+    """Get garden statistics"""
+    try:
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+        
+        # Get plant count
+        plant_result = conn.execute("MATCH (p:Planta) RETURN count(p) as plant_count")
+        plant_count = 0
+        if plant_result.has_next():
+            plant_count = plant_result.get_next()[0]
+        
+        # Get vegetable types count
+        vegetable_result = conn.execute("MATCH (h:Hortaliza) RETURN count(h) as vegetable_count")
+        vegetable_count = 0
+        if vegetable_result.has_next():
+            vegetable_count = vegetable_result.get_next()[0]
+        
+        # Get annotation count
+        annotation_result = conn.execute("MATCH (a:Anotation) RETURN count(a) as annotation_count")
+        annotation_count = 0
+        if annotation_result.has_next():
+            annotation_count = annotation_result.get_next()[0]
+        
+        return {
+            "success": True,
+            "stats": {
+                "plants": plant_count,
+                "vegetable_types": vegetable_count,
+                "annotations": annotation_count
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving garden stats: {str(e)}")
+
+# Add missing endpoints for garden-gui.js
+@app.post("/api/add_annotation")
+async def add_annotation(annotation: AnnotationCreateRequestAlt):
+    """Add a new annotation (alternative endpoint for garden-gui.js)"""
+    try:
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+        
+        # Generate unique annotation ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        random_suffix = random.randint(1000, 9999)
+        annotation_id = f"annotation_{timestamp}_{random_suffix}"
+        
+        # Create annotation
+        conn.execute("""
+            CREATE (a:Anotation {
+                id: $id,
+                tipo: $tipo,
+                comentario: $comentario,
+                fecha: $fecha
+            })
+        """, {
+            'id': annotation_id,
+            'tipo': annotation.type,
+            'comentario': annotation.content,
+            'fecha': datetime.now()
+        })
+        
+        # Create relationship based on target type
+        if annotation.target_type == 'plant' and annotation.target_id:
+            conn.execute("""
+                MATCH (a:Anotation {id: $annotation_id}), (p:Planta {id: $target_id})
+                CREATE (p)-[:HAS_ANOTATION {fecha_relacion: $fecha}]->(a)
+            """, {
+                'annotation_id': annotation_id,
+                'target_id': annotation.target_id,
+                'fecha': datetime.now()
+            })
+        elif annotation.target_type == 'garden':
+            # Default to relating with the default garden
+            conn.execute("""
+                MATCH (a:Anotation {id: $annotation_id}), (hu:Huerta {id: "huerta_principal"})
+                CREATE (hu)-[:HAS_ANOTATION_HUERTA {fecha_relacion: $fecha}]->(a)
+            """, {
+                'annotation_id': annotation_id,
+                'fecha': datetime.now()
+            })
+        
+        return {"success": True, "annotation_id": annotation_id, "message": "Annotation added successfully"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding annotation: {str(e)}")
+
+@app.post("/api/reset_db")
+async def reset_database():
+    """Reset the database (reinitialize)"""
+    try:
+        # Remove old database if exists
+        import shutil
+        if os.path.exists("database/garden.kuzu"):
+            if os.path.isfile("database/garden.kuzu"):
+                os.remove("database/garden.kuzu")
+            elif os.path.isdir("database/garden.kuzu"):
+                shutil.rmtree("database/garden.kuzu")
+        
+        # Initialize database
+        kuzu_manager.initialize_database()
+        
+        # Update status
+        db_status['connected'] = True
+        db_status['message'] = 'Database reset successfully'
+        
+        return {"success": True, "message": "Database reset successfully"}
+        
+    except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Error resetting database: {str(e)}'
+        raise HTTPException(status_code=500, detail=f"Error resetting database: {str(e)}")
+
+@app.post("/api/initialize")
+async def initialize_database_alt():
+    """Initialize the database (alias for initialize_db)"""
+    return await initialize_database()
 
 if __name__ == "__main__":
     import uvicorn
