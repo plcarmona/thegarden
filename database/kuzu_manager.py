@@ -71,16 +71,32 @@ class KuzuDBManager:
             with open(schema_path, "r", encoding="utf-8") as f:
                 schema_content = f.read()
             
-            # Dividir por comandos (separados por ';')
-            commands = [cmd.strip() for cmd in schema_content.split(';') if cmd.strip()]
+            # Dividir por comandos (separados por ';') y filtrar contenido de comentarios
+            commands = []
+            for cmd in schema_content.split(';'):
+                cmd = cmd.strip()
+                if not cmd:
+                    continue
+                
+                # Extraer las líneas que no son comentarios
+                lines = []
+                for line in cmd.split('\n'):
+                    line = line.strip()
+                    if line and not line.startswith('--'):
+                        lines.append(line)
+                
+                # Si hay contenido después de quitar comentarios, añadirlo
+                if lines:
+                    clean_command = '\n'.join(lines)
+                    if clean_command:
+                        commands.append(clean_command)
             
             for command in commands:
-                # Saltar comentarios
-                if command.startswith('--') or not command:
-                    continue
+                # Los comandos ya están limpios de comentarios
                 try:
+                    print(f"🔧 Executing: {command[:80]}...")
                     conn.execute(command)
-                    print(f"✓ Comando ejecutado: {command[:50]}...")
+                    print(f"✓ Success")
                 except Exception as e:
                     print(f"❌ Error ejecutando comando: {command[:100]}...")
                     print(f"   Error: {e}")

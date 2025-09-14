@@ -53,9 +53,7 @@ CREATE (hu:Huerta {
     nombre: "Mi Huerta Principal", 
     ancho: 800.0, 
     alto: 600.0,
-    configuracion_activa: true,
-    fecha_creacion: timestamp('2024-01-01T10:00:00'),
-    descripcion: "Huerta principal del jardín con área de cultivos mixtos"
+    fecha_creacion: timestamp('2024-01-01T10:00:00')
 });
 
 -- =============================================
@@ -67,9 +65,7 @@ CREATE (p:Planta {
     fecha_siembra: date('2024-01-15'),
     coordenadas_x: 150.0,
     coordenadas_y: 100.0,
-    estado: "activo",
-    fecha_cosecha: NULL,
-    notas: "Primera siembra de tomate de la temporada"
+    fecha_cosecha: NULL
 });
 
 CREATE (p:Planta {
@@ -77,9 +73,15 @@ CREATE (p:Planta {
     fecha_siembra: date('2024-01-20'),
     coordenadas_x: 200.0,
     coordenadas_y: 150.0,
-    estado: "activo",
-    fecha_cosecha: NULL,
-    notas: "Lechuga para ensaladas de verano"
+    fecha_cosecha: NULL
+});
+
+CREATE (p:Planta {
+    id: "zanahoria_001", 
+    fecha_siembra: date('2024-01-10'),
+    coordenadas_x: 300.0,
+    coordenadas_y: 120.0,
+    fecha_cosecha: NULL
 });
 
 -- =============================================
@@ -97,37 +99,25 @@ CREATE (p)-[:IS_OF_TYPE {fecha_relacion: timestamp('2024-01-20T10:00:00')}]->(h)
 -- ANOTACIONES DE EJEMPLO
 -- =============================================
 
-CREATE (:Anotaciones {
+CREATE (:Anotation {
     id: "anotacion_001",
     tipo: "siembra",
-    nivel_especificidad: "individuo", 
-    fecha: timestamp('2024-01-15T09:30:00'),
-    notas: "Siembra realizada en día soleado, suelo bien preparado",
-    fotos: [],
-    temporada: "verano",
-    metadata: "{\"temperatura\": 22, \"humedad\": 65}"
+    comentario: "Siembra realizada en día soleado, suelo bien preparado",
+    fecha: timestamp('2024-01-15T09:30:00')
 });
 
-CREATE (:Anotaciones {
+CREATE (:Anotation {
     id: "anotacion_002",
     tipo: "riego",
-    nivel_especificidad: "tipo_planta",
-    fecha: timestamp('2024-01-18T07:00:00'),
-    notas: "Riego matutino, sistema de goteo funcionando correctamente",
-    fotos: [],
-    temporada: "verano", 
-    metadata: "{\"duracion_minutos\": 30, \"litros_aprox\": 15}"
+    comentario: "Riego matutino, sistema de goteo funcionando correctamente",
+    fecha: timestamp('2024-01-18T07:00:00')
 });
 
-CREATE (:Anotaciones {
+CREATE (:Anotation {
     id: "anotacion_003",
     tipo: "nota",
-    nivel_especificidad: "estacion",
-    fecha: timestamp('2024-01-20T18:00:00'), 
-    notas: "Las temperaturas nocturnas están bajando, considerar protección",
-    fotos: [],
-    temporada: "verano",
-    metadata: "{\"temperatura_minima\": 12}"
+    comentario: "Las temperaturas nocturnas están bajando, considerar protección",
+    fecha: timestamp('2024-01-20T18:00:00')
 });
 
 -- =============================================
@@ -141,28 +131,25 @@ CREATE (p)-[:IS_OF_TYPE {fecha_relacion: timestamp('2024-01-15T09:30:00')}]->(h)
 MATCH (p:Planta {id: "lechuga_001"}), (h:Hortaliza {id: 2})
 CREATE (p)-[:IS_OF_TYPE {fecha_relacion: timestamp('2024-01-20T10:00:00')}]->(h);
 
-MATCH (p:Planta {id: "pepino_001"}), (h:Hortaliza {id: 4})
+MATCH (p:Planta {id: "zanahoria_001"}), (h:Hortaliza {id: 3})
 CREATE (p)-[:IS_OF_TYPE {fecha_relacion: timestamp('2024-01-10T08:00:00')}]->(h);
 
 -- Relacionar plantas con huerta
 MATCH (p:Planta {id: "tomate_001"}), (hu:Huerta {id: "huerta_default"})
-CREATE (p)-[:LOCATED_IN {fecha_plantacion: date('2024-01-15'), area_ocupada: 1.5}]->(hu),
-       (hu)-[:CONTAINS]->(p);
+CREATE (p)-[:PART_OF {fecha_relacion: timestamp('2024-01-15T09:30:00')}]->(hu);
 
 MATCH (p:Planta {id: "lechuga_001"}), (hu:Huerta {id: "huerta_default"})
-CREATE (p)-[:LOCATED_IN {fecha_plantacion: date('2024-01-20'), area_ocupada: 0.3}]->(hu),
-       (hu)-[:CONTAINS]->(p);
+CREATE (p)-[:PART_OF {fecha_relacion: timestamp('2024-01-20T10:00:00')}]->(hu);
 
-MATCH (p:Planta {id: "pepino_001"}), (hu:Huerta {id: "huerta_default"})
-CREATE (p)-[:LOCATED_IN {fecha_plantacion: date('2024-01-10'), area_ocupada: 2.0}]->(hu),
-       (hu)-[:CONTAINS]->(p);
+MATCH (p:Planta {id: "zanahoria_001"}), (hu:Huerta {id: "huerta_default"})
+CREATE (p)-[:PART_OF {fecha_relacion: timestamp('2024-01-10T08:00:00')}]->(hu);
 
 -- Relacionar anotaciones
-MATCH (a:Anotaciones {id: "anotacion_001"}), (p:Planta {id: "tomate_001"})
-CREATE (a)-[:ANNOTATES_PLANTA {relevancia: 1.0, fecha_anotacion: timestamp('2024-01-15T09:30:00')}]->(p);
+MATCH (a:Anotation {id: "anotacion_001"}), (p:Planta {id: "tomate_001"})
+CREATE (p)-[:HAS_ANOTATION {fecha_relacion: timestamp('2024-01-15T09:30:00')}]->(a);
 
-MATCH (a:Anotaciones {id: "anotacion_002"}), (h:Hortaliza {id: 1})
-CREATE (a)-[:ANNOTATES {relevancia: 0.8, fecha_anotacion: timestamp('2024-01-18T07:00:00')}]->(h);
+MATCH (a:Anotation {id: "anotacion_002"}), (h:Hortaliza {id: 1})
+CREATE (h)-[:HAS_ANOTATION_HORTALIZA {fecha_relacion: timestamp('2024-01-18T07:00:00')}]->(a);
 
-MATCH (a:Anotaciones {id: "anotacion_003"}), (hu:Huerta {id: "huerta_default"})
-CREATE (a)-[:ANNOTATES_HUERTA {relevancia: 0.9, fecha_anotacion: timestamp('2024-01-20T18:00:00')}]->(hu);
+MATCH (a:Anotation {id: "anotacion_003"}), (hu:Huerta {id: "huerta_default"})
+CREATE (hu)-[:HAS_ANOTATION_HUERTA {fecha_relacion: timestamp('2024-01-20T18:00:00')}]->(a);

@@ -25,9 +25,7 @@ CREATE NODE TABLE Planta (
     fecha_siembra DATE,
     coordenadas_x DOUBLE,
     coordenadas_y DOUBLE,
-    fecha_cosecha DATE,
-    --estado STRING,
-    --notas STRING []
+    fecha_cosecha DATE
 );
 
 -- Huerta: Información espacial y configuración de jardín
@@ -36,16 +34,15 @@ CREATE NODE TABLE Huerta (
     nombre STRING,
     ancho DOUBLE,
     alto DOUBLE,
-    fecha_creacion TIMESTAMP,
+    fecha_creacion TIMESTAMP
 );
 
--- Notas: Registro de notas y observaciones
+-- Notas: Registro de notas y observaciones  
 CREATE NODE TABLE Anotation (
     id STRING PRIMARY KEY,
-    tipo STRING, -- 'planta', 'huerta', 'hortaliza', 'estacion', 'plagas', 'planing', etc.
+    tipo STRING,
     comentario STRING,
-    fecha TIMESTAMP,
-    
+    fecha TIMESTAMP
 );
 
 -- =============================================
