@@ -10,7 +10,7 @@ from datetime import datetime
 from database.kuzu_manager import kuzu_manager
 from database.toml_loader import toml_loader
 
-app = Flask(__name__, template_folder='gui', static_folder='gui')
+app = Flask(__name__, template_folder='templates', static_folder='gui')
 app.secret_key = 'garden_secret_key_2024'  # For session management and flash messages
 
 # Global state

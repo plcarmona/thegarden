@@ -2,9 +2,23 @@
 
 This document describes the GUI implementation for The Garden plant management system.
 
-## Overview
+## GUI Options
 
-The Garden now includes both a command-line interface (CLI) and a modern web-based graphical user interface (GUI) for managing garden plants and database operations.
+The Garden provides two GUI interfaces:
+
+### 1. **Web GUI** (Recommended)
+- Works everywhere (desktop, laptop, server, mobile)
+- Modern responsive web interface
+- No display requirements
+- Access via web browser at `http://localhost:5001`
+
+### 2. **Desktop GUI** (Tkinter)
+- Native desktop application
+- Requires desktop environment with display
+- Traditional desktop application feel
+- Falls back gracefully in headless environments
+
+Both interfaces provide identical functionality - choose based on your environment and preferences.
 
 ## GUI Features
 
@@ -24,9 +38,13 @@ The Garden now includes both a command-line interface (CLI) and a modern web-bas
 ## Files Created
 
 ### Web GUI Implementation:
-- **`web_gui.py`**: Flask web server with REST API endpoints
-- **`templates/index.html`**: Complete web interface with HTML, CSS, and JavaScript
-- **`gui.py`**: Alternative desktop GUI using tkinter (requires display)
+- **`web_gui.py`**: Flask web server with REST API endpoints (✅ Fixed template configuration)
+- **`templates/index.html`**: Complete web interface with HTML, CSS, and JavaScript  
+- **`gui/index.html`**: Alternative GUI interface template
+
+### Desktop GUI Implementation:
+- **`gui.py`**: Desktop GUI using tkinter with improved error handling
+- **`launcher.py`**: Interactive launcher for choosing between interfaces
 
 ### Test and Demo Scripts:
 - **`test_gui.py`**: Tests GUI functionality and dependencies
@@ -40,9 +58,27 @@ cd /path/to/thegarden
 pip install -r requirements.txt
 ```
 
-### 2. Run the Web GUI
+### 2. Choose Interface
+
+**Option A: Use the Launcher (Recommended)**
+```bash
+python launcher.py
+```
+Then select from the menu:
+1. Web GUI (works everywhere)
+2. Desktop GUI (tkinter - requires desktop environment)
+3. Command Line Interface
+
+**Option B: Run Interfaces Directly**
+
+**Web GUI** (Recommended - works everywhere):
 ```bash
 python web_gui.py
+```
+
+**Desktop GUI** (tkinter - requires desktop environment):
+```bash
+python gui.py
 ```
 
 ### 3. Open Browser
