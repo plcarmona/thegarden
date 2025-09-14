@@ -38,36 +38,150 @@ class KuzuDBManager:
             self._kuzu_available = False
         
     def connect(self):
-        """Conectar a la base de datos KuzuDB"""
+        """Conectar a la base de datos KuzuDB - creates a fresh connection"""
         if not self._kuzu_available:
             return None
             
-        if self.db is None or self.conn is None:
-            try:
-                import kuzu
-                self.db = kuzu.Database(self.db_path)
-                self.conn = kuzu.Connection(self.db)
-                print(f"✓ Conectado a KuzuDB: {self.db_path}")
-            except Exception as e:
-                print(f"❌ Error conectando a KuzuDB: {e}")
-                self._kuzu_available = False
-                return None
-        return self.conn
+        try:
+            import kuzu
+            # Always create fresh connection instances to avoid concurrency issues
+            db = kuzu.Database(self.db_path)
+            conn = kuzu.Connection(db)
+            print(f"✓ Conectado a KuzuDB: {self.db_path}")
+            
+            # Check if database is initialized, auto-initialize if needed  
+            # Use the new connection for initialization check
+            if not self._is_database_initialized(conn):
+                print("⚠️ Database not initialized, auto-initializing schema...")
+                if self._initialize_schema_with_connection(conn):
+                    print("✓ Database schema auto-initialized successfully")
+                    print("ℹ️  Use the Initialize DB button to load initial data (hortalizas, structures, etc.)")
+                else:
+                    print("❌ Auto-initialization failed")
+            
+            return conn
+            
+        except Exception as e:
+            print(f"❌ Error conectando a KuzuDB: {e}")
+            return None
+    
+    def _is_database_initialized(self, conn) -> bool:
+        """Check if the database has been initialized with required tables"""
+        if not conn:
+            return False
+        
+        try:
+            # Test for key tables by trying a simple count query
+            conn.execute("MATCH (n:Anotation) RETURN count(n) LIMIT 1")
+            conn.execute("MATCH (n:Estructura) RETURN count(n) LIMIT 1") 
+            conn.execute("MATCH (n:Hortaliza) RETURN count(n) LIMIT 1")
+            return True
+        except Exception:
+            # If any query fails, database is not properly initialized
+            return False
     
     def is_available(self) -> bool:
         """Verificar si KuzuDB está disponible y conectado"""
         return self._kuzu_available
     
+    def _initialize_schema_with_connection(self, conn):
+        """Initialize schema using provided connection"""
+        if not self.is_available():
+            print("⚠️ KuzuDB no disponible, saltando inicialización de schema")
+            return False
+            
+        if conn is None:
+            print("❌ Error: No se pudo usar la conexión para inicializar schema")
+            return False
+            
+        schema_path = "database/schemas/garden_schema.sql"
+        
+        if not os.path.exists(schema_path):
+            print(f"⚠️ Schema file no encontrado: {schema_path}")
+            return False
+        
+        try:
+            # Leer y ejecutar schema
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_content = f.read()
+            
+            # Dividir por comandos (separados por ';') y filtrar contenido de comentarios
+            commands = []
+            for cmd in schema_content.split(';'):
+                cmd = cmd.strip()
+                if not cmd:
+                    continue
+                
+                # Extraer las líneas que no son comentarios
+                lines = []
+                for line in cmd.split('\n'):
+                    line = line.strip()
+                    if line and not line.startswith('--'):
+                        lines.append(line)
+                
+                # Si hay contenido después de quitar comentarios, añadirlo
+                if lines:
+                    clean_command = '\n'.join(lines)
+                    if clean_command:
+                        commands.append(clean_command)
+            
+            for command in commands:
+                # Los comandos ya están limpios de comentarios
+                try:
+                    print(f"🔧 Executing: {command[:80]}...")
+                    conn.execute(command)
+                    print(f"✓ Success")
+                except Exception as e:
+                    print(f"❌ Error ejecutando comando: {command[:100]}...")
+                    print(f"   Error: {e}")
+                    # No fallar completamente, continuar con próximo comando
+            
+            # Validate that key tables were created successfully
+            try:
+                validation_queries = [
+                    "MATCH (n:Hortaliza) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Planta) RETURN count(n) LIMIT 1", 
+                    "MATCH (n:Huerta) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Anotation) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Estructura) RETURN count(n) LIMIT 1"
+                ]
+                
+                failed_tables = []
+                for query in validation_queries:
+                    try:
+                        conn.execute(query)
+                    except Exception as e:
+                        table_name = query.split(":")[1].split(")")[0]
+                        failed_tables.append(table_name)
+                
+                if failed_tables:
+                    print(f"❌ Schema validation failed - missing tables: {', '.join(failed_tables)}")
+                    print("   Database initialization incomplete!")
+                    return False
+                else:
+                    print("✓ Schema validation successful - all tables created")
+                    
+            except Exception as e:
+                print(f"⚠️ Schema validation error: {e}")
+            
+            print("✓ Schema inicializado correctamente")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error general inicializando schema: {e}")
+            return False
+    
     def initialize_schema(self):
         """Inicializar schema desde archivo SQL"""
         if not self.is_available():
             print("⚠️ KuzuDB no disponible, saltando inicialización de schema")
-            return
+            return False
             
-        conn = self.connect()
+        # Use existing connection if available, otherwise connect
+        conn = self.conn if self.conn else self.connect()
         if conn is None:
             print("❌ Error: No se pudo establecer conexión a KuzuDB para inicializar schema")
-            return
+            return False
             
         schema_path = "database/schemas/garden_schema.sql"
         
@@ -145,6 +259,20 @@ class KuzuDBManager:
         except Exception as e:
             print(f"❌ Error general inicializando schema: {e}")
             return False
+            
+    def _create_fresh_connection(self):
+        """Create a fresh connection without auto-initialization"""
+        if not self._kuzu_available:
+            return None
+            
+        try:
+            import kuzu
+            db = kuzu.Database(self.db_path)
+            conn = kuzu.Connection(db)
+            return conn
+        except Exception as e:
+            print(f"❌ Error creating fresh connection: {e}")
+            return None
     
     def load_initial_data(self):
         """Cargar datos iniciales desde TOML y archivos de semillas"""
@@ -341,13 +469,17 @@ class KuzuDBManager:
         except Exception as e:
             print(f"❌ Error general creando relaciones de ejemplo: {e}")
     
-    def execute_query(self, query: str, parameters: Dict = None):
+    def execute_query(self, query: str, parameters: Dict = None, connection=None):
         """Ejecutar consulta con parámetros opcionales"""
         if not self.is_available():
             print("⚠️ KuzuDB no disponible para ejecutar consulta")
             return None
+        
+        # Use provided connection or create a new one
+        conn = connection if connection else self.connect()
+        if not conn:
+            return None
             
-        conn = self.connect()
         try:
             if parameters:
                 return conn.execute(query, parameters)
@@ -357,6 +489,10 @@ class KuzuDBManager:
             print(f"❌ Error ejecutando consulta KuzuDB: {query[:100]}...")
             print(f"   Error: {e}")
             raise
+        finally:
+            # Only close if we created the connection
+            if not connection:
+                self.close(conn)
     
     def query_plantas_by_coordinates(self, x: float, y: float, radius: float = 20.0) -> List[Dict]:
         """Consulta optimizada para obtener plantas por coordenadas"""
@@ -558,23 +694,32 @@ class KuzuDBManager:
             print(f"Error añadiendo anotación: {e}")
             return False
 
-    def close(self):
-        """Cerrar conexión"""
-        if self.conn:
+    def close(self, connection=None):
+        """Cerrar conexión - for isolated connections, pass the connection to close"""
+        if connection:
+            # Close a specific connection (new approach)
             try:
-                self.conn.close()
+                connection.close()
+                print("✓ KuzuDB connection closed")
             except:
                 pass
-            finally:
-                self.conn = None
-        if self.db:
-            try:
-                self.db.close() 
-            except:
-                pass
-            finally:
-                self.db = None
-        print("✓ KuzuDB desconectado")
+        else:
+            # Legacy approach for backward compatibility
+            if self.conn:
+                try:
+                    self.conn.close()
+                except:
+                    pass
+                finally:
+                    self.conn = None
+            if self.db:
+                try:
+                    self.db.close() 
+                except:
+                    pass
+                finally:
+                    self.db = None
+            print("✓ KuzuDB desconectado")
 
 
 # Instancia global singleton

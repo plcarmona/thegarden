@@ -24,7 +24,7 @@ db_status = {
 @app.route('/')
 def index():
     """Main page"""
-    return render_template('index.html', db_status=db_status)
+    return send_from_directory('gui', 'index.html')
 
 
 @app.route('/garden-gui.js')
