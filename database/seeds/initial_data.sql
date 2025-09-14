@@ -65,7 +65,8 @@ CREATE (p:Planta {
     fecha_siembra: date('2024-01-15'),
     coordenadas_x: 150.0,
     coordenadas_y: 100.0,
-    fecha_cosecha: NULL
+    fecha_cosecha: NULL,
+    estado: "activo"
 });
 
 CREATE (p:Planta {
@@ -73,7 +74,8 @@ CREATE (p:Planta {
     fecha_siembra: date('2024-01-20'),
     coordenadas_x: 200.0,
     coordenadas_y: 150.0,
-    fecha_cosecha: NULL
+    fecha_cosecha: NULL,
+    estado: "activo"
 });
 
 CREATE (p:Planta {
@@ -81,7 +83,8 @@ CREATE (p:Planta {
     fecha_siembra: date('2024-01-10'),
     coordenadas_x: 300.0,
     coordenadas_y: 120.0,
-    fecha_cosecha: NULL
+    fecha_cosecha: NULL,
+    estado: "activo"
 });
 
 -- =============================================
