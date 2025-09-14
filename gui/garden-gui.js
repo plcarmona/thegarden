@@ -545,11 +545,47 @@ class GardenGUI {
             { 
                 id: 'ann_001',
                 title: 'Riego diario',
-                content: 'Las tomateras necesitan riego diario',
+                content: 'Las tomateras necesitan riego diario durante la temporada de crecimiento. Es importante mantener el suelo húmedo pero no encharcado.',
                 type: 'observation',
                 created_date: '2024-01-16',
                 x: 100,
                 y: 130
+            },
+            { 
+                id: 'ann_002',
+                title: 'Problema con pulgones',
+                content: 'He detectado pulgones en las hojas de lechuga. Necesito aplicar un tratamiento natural con jabón potásico.',
+                type: 'problem',
+                created_date: '2024-01-20',
+                x: 200,
+                y: 100
+            },
+            { 
+                id: 'ann_003',
+                title: 'Cosecha de zanahorias',
+                content: 'Las zanahorias están listas para cosechar. Tienen buen tamaño y color naranja intenso.',
+                type: 'harvest',
+                created_date: '2024-02-05',
+                x: 150,
+                y: 250
+            },
+            { 
+                id: 'ann_004',
+                title: 'Fertilización orgánica',
+                content: 'Aplicé compost casero alrededor de todas las plantas. Esto debería mejorar la retención de agua y nutrientes.',
+                type: 'maintenance',
+                created_date: '2024-01-25',
+                x: 0,
+                y: 0
+            },
+            { 
+                id: 'ann_005',
+                title: 'Solución para pulgones',
+                content: 'El tratamiento con jabón potásico funcionó perfectamente. Los pulgones han desaparecido completamente.',
+                type: 'solution',
+                created_date: '2024-01-28',
+                x: 200,
+                y: 100
             }
         ];
         
@@ -888,6 +924,144 @@ function showAddAnnotationModal() {
     }
     
     document.getElementById('addAnnotationModal').style.display = 'block';
+}
+
+// Global variables for notes browser
+let allNotes = [];
+let filteredNotes = [];
+
+async function showNotesBrowser() {
+    const modal = document.getElementById('notesBrowserModal');
+    const notesList = document.getElementById('notesList');
+    
+    // Show loading
+    notesList.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">Loading notes...</p>';
+    
+    // Show modal
+    modal.style.display = 'block';
+    
+    try {
+        // First try to use data from the GUI instance (mock or real data)
+        if (gardenGUI && gardenGUI.annotations && gardenGUI.annotations.length > 0) {
+            allNotes = [...gardenGUI.annotations];
+        } else {
+            // Fallback to API
+            const response = await fetch('/api/annotations');
+            const data = await response.json();
+            
+            if (data.success) {
+                allNotes = data.annotations.map(annotation => ({
+                    id: annotation.id,
+                    title: annotation.type,
+                    content: annotation.content,
+                    type: annotation.type,
+                    created_date: annotation.date
+                }));
+            } else {
+                allNotes = [];
+            }
+        }
+    } catch (error) {
+        console.error('Error loading notes:', error);
+        // Use mock data as ultimate fallback
+        allNotes = gardenGUI ? gardenGUI.annotations || [] : [];
+    }
+    
+    // Initialize filters and display notes
+    filteredNotes = [...allNotes];
+    displayNotes();
+}
+
+function displayNotes() {
+    const notesList = document.getElementById('notesList');
+    
+    if (filteredNotes.length === 0) {
+        notesList.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">No notes found.</p>';
+        return;
+    }
+    
+    const notesHTML = filteredNotes.map(note => {
+        const truncatedContent = note.content && note.content.length > 100 
+            ? note.content.substring(0, 100) + '...'
+            : note.content || '';
+        
+        return `
+            <div class="note-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; hover: background-color: #f5f5f5;" 
+                 onclick="selectNote('${note.id}')">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <h5 style="margin: 0; color: #2c3e50; font-size: 14px; font-weight: bold;">${note.title}</h5>
+                    <span style="background: #3498db; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">${note.type}</span>
+                </div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 6px;">
+                    📅 ${note.created_date || 'No date'}
+                </div>
+                <div style="font-size: 13px; color: #333; line-height: 1.4;">
+                    ${truncatedContent}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    notesList.innerHTML = notesHTML;
+}
+
+function selectNote(noteId) {
+    const note = allNotes.find(n => n.id === noteId);
+    if (!note) return;
+    
+    const noteDetails = document.getElementById('noteDetails');
+    const noteDetailsTitle = document.getElementById('noteDetailsTitle');
+    const noteDetailsInfo = document.getElementById('noteDetailsInfo');
+    const noteDetailsContent = document.getElementById('noteDetailsContent');
+    
+    noteDetailsTitle.textContent = note.title;
+    noteDetailsInfo.textContent = `Type: ${note.type} • Date: ${note.created_date || 'No date'} • ID: ${note.id}`;
+    noteDetailsContent.textContent = note.content || 'No content available';
+    
+    noteDetails.style.display = 'block';
+    
+    // Highlight selected note
+    const noteItems = document.querySelectorAll('.note-item');
+    noteItems.forEach(item => item.style.backgroundColor = '');
+    event.target.closest('.note-item').style.backgroundColor = '#e3f2fd';
+}
+
+function filterNotes() {
+    const searchTerm = document.getElementById('notesSearch').value.toLowerCase();
+    const typeFilter = document.getElementById('notesTypeFilter').value;
+    
+    filteredNotes = allNotes.filter(note => {
+        const matchesSearch = !searchTerm || 
+            (note.title && note.title.toLowerCase().includes(searchTerm)) ||
+            (note.content && note.content.toLowerCase().includes(searchTerm));
+        
+        const matchesType = !typeFilter || note.type === typeFilter;
+        
+        return matchesSearch && matchesType;
+    });
+    
+    sortNotes();
+}
+
+function sortNotes() {
+    const sortOrder = document.getElementById('notesSortOrder').value;
+    
+    filteredNotes.sort((a, b) => {
+        switch (sortOrder) {
+            case 'date-desc':
+                return new Date(b.created_date || '1970-01-01') - new Date(a.created_date || '1970-01-01');
+            case 'date-asc':
+                return new Date(a.created_date || '1970-01-01') - new Date(b.created_date || '1970-01-01');
+            case 'type':
+                return (a.type || '').localeCompare(b.type || '');
+            case 'title':
+                return (a.title || '').localeCompare(b.title || '');
+            default:
+                return 0;
+        }
+    });
+    
+    displayNotes();
 }
 
 function closeModal(modalId) {

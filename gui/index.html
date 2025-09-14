@@ -336,6 +336,15 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Notes Browser Styles */
+        .note-item:hover {
+            background-color: #f5f5f5 !important;
+        }
+
+        .modal-content {
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -347,6 +356,7 @@
             <button class="btn btn-danger" onclick="resetDatabase()">🔄 Reset DB</button>
             <button class="btn btn-primary" onclick="togglePlantMode()">➕ Add Plant</button>
             <button class="btn btn-primary" onclick="showAddAnnotationModal()">📝 Add Annotation</button>
+            <button class="btn btn-primary" onclick="showNotesBrowser()">📖 Browse Notes</button>
         </div>
     </div>
 
@@ -497,6 +507,58 @@
         </div>
     </div>
 
+    <!-- Notes Browser Modal -->
+    <div id="notesBrowserModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
+            <div class="modal-header">
+                <h3>📖 Browse Notes & Annotations</h3>
+                <button class="close" onclick="closeModal('notesBrowserModal')">&times;</button>
+            </div>
+            
+            <!-- Search and Filter Controls -->
+            <div class="notes-controls" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" id="notesSearch" placeholder="🔍 Search notes..." 
+                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                           onkeyup="filterNotes()">
+                </div>
+                <div>
+                    <select id="notesTypeFilter" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="filterNotes()">
+                        <option value="">All Types</option>
+                        <option value="observation">Observation</option>
+                        <option value="problem">Problem</option>
+                        <option value="solution">Solution</option>
+                        <option value="harvest">Harvest</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div>
+                    <select id="notesSortOrder" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="sortNotes()">
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="type">By Type</option>
+                        <option value="title">By Title</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Notes List -->
+            <div id="notesList" style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">
+                <p style="text-align: center; padding: 20px; color: #666;">Loading notes...</p>
+            </div>
+            
+            <!-- Selected Note Details -->
+            <div id="noteDetails" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; display: none;">
+                <h4 id="noteDetailsTitle" style="margin: 0 0 10px 0; color: #2c3e50;"></h4>
+                <div id="noteDetailsInfo" style="font-size: 12px; color: #666; margin-bottom: 10px;"></div>
+                <div id="noteDetailsContent" style="white-space: pre-wrap; line-height: 1.5;"></div>
+            </div>
+            
+            <div style="text-align: right; margin-top: 20px;">
+                <button type="button" class="btn" onclick="closeModal('notesBrowserModal')">Close</button>
+            </div>
+        </div>
+    </div>
     <!-- Loading Indicator -->
     <div class="loading" id="loadingIndicator">
         <div class="spinner"></div>
