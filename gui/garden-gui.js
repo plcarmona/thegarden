@@ -408,7 +408,7 @@ class GardenGUI {
     // Data loading methods
     async loadAvailableVegetables() {
         try {
-            const response = await fetch('/api/vegetables');
+            const response = await fetch('/api/hortalizas');
             this.vegetables = await response.json();
             
             // Populate dropdown
@@ -418,7 +418,7 @@ class GardenGUI {
             for (const vegetable of this.vegetables) {
                 const option = document.createElement('option');
                 option.value = vegetable.id;
-                option.textContent = vegetable.name;
+                option.textContent = vegetable.nombre; // Using Spanish field name from API
                 select.appendChild(option);
             }
         } catch (error) {
