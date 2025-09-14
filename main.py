@@ -38,7 +38,10 @@ def initialize_database():
         print("🔧 Creating database schema...")
         
         # Use the formal schema files
-        kuzu_manager.initialize_schema()
+        schema_success = kuzu_manager.initialize_schema()
+        if not schema_success:
+            print("❌ Schema creation failed - aborting initialization")
+            return False
         
         print("📦 Loading initial data...")
         
