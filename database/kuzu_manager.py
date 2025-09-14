@@ -463,6 +463,101 @@ class KuzuDBManager:
             
         return inside
     
+    def query_all_annotations(self) -> List[Dict]:
+        """Get all annotations ordered by date (most recent first)"""
+        if not self.is_available():
+            return []
+            
+        query = """
+        MATCH (a:Anotation)
+        RETURN a.id, a.tipo, a.comentario, a.fecha
+        ORDER BY a.fecha DESC
+        """
+        
+        try:
+            result = self.execute_query(query)
+            annotations = []
+            
+            if result and result.has_next():
+                while result.has_next():
+                    row = result.get_next()
+                    annotations.append({
+                        "id": row[0],
+                        "tipo": row[1],
+                        "comentario": row[2],
+                        "fecha": row[3]
+                    })
+                    
+            return annotations
+            
+        except Exception as e:
+            print(f"Error consultando anotaciones: {e}")
+            return []
+    
+    def add_annotation(self, tipo: str, comentario: str, target_type: str = "garden", target_id: str = None) -> bool:
+        """Add a new annotation to the database"""
+        if not self.is_available():
+            return False
+            
+        # Generate unique annotation ID
+        annotation_id = f"anotacion_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        try:
+            # Create the annotation
+            create_annotation_query = """
+            CREATE (a:Anotation {
+                id: $id,
+                tipo: $tipo,
+                comentario: $comentario,
+                fecha: $fecha
+            })
+            """
+            
+            self.execute_query(create_annotation_query, {
+                'id': annotation_id,
+                'tipo': tipo,
+                'comentario': comentario,
+                'fecha': datetime.now()
+            })
+            
+            # Create relationship based on target type
+            if target_type == "plant" and target_id:
+                relate_query = """
+                MATCH (p:Planta {id: $target_id}), (a:Anotation {id: $annotation_id})
+                CREATE (p)-[:HAS_ANOTATION {fecha_relacion: $fecha}]->(a)
+                """
+                self.execute_query(relate_query, {
+                    'target_id': target_id,
+                    'annotation_id': annotation_id,
+                    'fecha': datetime.now()
+                })
+            elif target_type == "garden":
+                # Default to relating with the default garden
+                relate_query = """
+                MATCH (hu:Huerta {id: "huerta_default"}), (a:Anotation {id: $annotation_id})
+                CREATE (hu)-[:HAS_ANOTATION_HUERTA {fecha_relacion: $fecha}]->(a)
+                """
+                self.execute_query(relate_query, {
+                    'annotation_id': annotation_id,
+                    'fecha': datetime.now()
+                })
+            elif target_type == "vegetable" and target_id:
+                relate_query = """
+                MATCH (h:Hortaliza {id: $target_id}), (a:Anotation {id: $annotation_id})
+                CREATE (h)-[:HAS_ANOTATION_HORTALIZA {fecha_relacion: $fecha}]->(a)
+                """
+                self.execute_query(relate_query, {
+                    'target_id': int(target_id),
+                    'annotation_id': annotation_id,
+                    'fecha': datetime.now()
+                })
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error añadiendo anotación: {e}")
+            return False
+
     def close(self):
         """Cerrar conexión"""
         if self.conn:

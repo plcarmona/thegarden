@@ -168,14 +168,76 @@ def api_initialize():
 
 @app.route('/api/annotations')
 def api_annotations():
-    """Get annotations (placeholder - returning empty list for now)"""
-    return jsonify([])
+    """Get all annotations from database"""
+    if not db_status['connected']:
+        return jsonify({'success': False, 'message': 'Database not connected'})
+    
+    try:
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise Exception("Could not connect to database")
+        
+        annotations = kuzu_manager.query_all_annotations()
+        kuzu_manager.close()
+        
+        # Format annotations for frontend
+        formatted_annotations = []
+        for annotation in annotations:
+            fecha = annotation['fecha']
+            if isinstance(fecha, datetime):
+                fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
+            else:
+                fecha_str = str(fecha) if fecha else "Unknown"
+                
+            formatted_annotations.append({
+                'id': annotation['id'],
+                'type': annotation['tipo'],
+                'content': annotation['comentario'],
+                'date': fecha_str
+            })
+        
+        return jsonify({'success': True, 'annotations': formatted_annotations})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/structures')
 def api_structures():
-    """Get structures (placeholder - returning empty list for now)"""
-    return jsonify([])
+    """Get all structures from database"""
+    if not db_status['connected']:
+        return jsonify({'success': False, 'message': 'Database not connected'})
+    
+    try:
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise Exception("Could not connect to database")
+        
+        structures = kuzu_manager.query_all_estructuras()
+        kuzu_manager.close()
+        
+        # Format structures for frontend
+        formatted_structures = []
+        for structure in structures:
+            fecha = structure['fecha_creacion']
+            if isinstance(fecha, datetime):
+                fecha_str = fecha.strftime("%Y-%m-%d %H:%M")
+            else:
+                fecha_str = str(fecha) if fecha else "Unknown"
+                
+            formatted_structures.append({
+                'id': structure['id'],
+                'name': structure['nombre'],
+                'type': structure['tipo'],
+                'description': structure['descripcion'],
+                'polygon': structure['poligono'],
+                'date': fecha_str
+            })
+        
+        return jsonify({'success': True, 'structures': formatted_structures})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
 
 
 @app.route('/api/hortalizas')
@@ -344,6 +406,50 @@ def api_remove_plant():
             'success': True,
             'message': f'Plant {plant_id} removed successfully'
         })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/add_annotation', methods=['POST'])
+def api_add_annotation():
+    """Add a new annotation to the database"""
+    if not db_status['connected']:
+        return jsonify({'success': False, 'message': 'Database not connected'})
+    
+    try:
+        data = request.json
+        annotation_type = data.get('type', 'observation')
+        title = data.get('title', '')
+        content = data.get('content', '')
+        target = data.get('target', 'garden')
+        target_id = data.get('target_id')
+        
+        if not content.strip():
+            raise Exception("Content is required for annotations")
+        
+        # Combine title and content for the comment field
+        comentario = f"{title}: {content}" if title else content
+        
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise Exception("Could not connect to database")
+        
+        success = kuzu_manager.add_annotation(
+            tipo=annotation_type,
+            comentario=comentario,
+            target_type=target,
+            target_id=target_id
+        )
+        kuzu_manager.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Annotation added successfully!'
+            })
+        else:
+            raise Exception("Failed to add annotation to database")
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
