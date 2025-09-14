@@ -6,6 +6,7 @@ import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
+from contextlib import contextmanager
 from .toml_loader import toml_loader
 
 
@@ -17,6 +18,7 @@ class KuzuDBManager:
         self.db = None
         self.conn = None
         self._kuzu_available = self._check_kuzu_availability()
+        self._connection_count = 0  # Track connections for debugging
         if self._kuzu_available:
             self._ensure_db_exists()
     
@@ -47,7 +49,9 @@ class KuzuDBManager:
             # Always create fresh connection instances to avoid concurrency issues
             db = kuzu.Database(self.db_path)
             conn = kuzu.Connection(db)
-            print(f"✓ Conectado a KuzuDB: {self.db_path}")
+            self._connection_count += 1
+            if self._connection_count == 1:  # Only print on first connection
+                print(f"✓ Conectado a KuzuDB: {self.db_path}")
             
             # Check if database is initialized, auto-initialize if needed  
             # Use the new connection for initialization check
@@ -83,6 +87,19 @@ class KuzuDBManager:
     def is_available(self) -> bool:
         """Verificar si KuzuDB está disponible y conectado"""
         return self._kuzu_available
+
+    @contextmanager
+    def get_connection(self):
+        """Context manager for database connections to ensure proper cleanup"""
+        conn = None
+        try:
+            conn = self.connect()
+            yield conn
+        finally:
+            # KuzuDB connections are automatically cleaned up when out of scope
+            # No explicit close needed, but we track this for debugging
+            if conn:
+                self._connection_count = max(0, self._connection_count - 1)
     
     def _initialize_schema_with_connection(self, conn):
         """Initialize schema using provided connection"""
@@ -280,26 +297,50 @@ class KuzuDBManager:
             print("⚠️ KuzuDB no disponible, saltando carga de datos iniciales")
             return
             
-        conn = self.connect()
-        if conn is None:
-            print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar datos iniciales")
-            return
+        print("📦 Loading initial data...")
         
-        # First load basic data (garden) from SQL seeds
-        self._load_sql_seeds()
-        
-        # Then load hortalizas from TOML
-        self._load_hortalizas_from_toml()
-        
-        # Load structures from TOML
-        self._load_estructuras_from_toml()
-        
-        # Create relationships for sample plants
-        self._create_sample_relationships()
+        # Use a single connection for all operations to avoid lock issues
+        with self.get_connection() as conn:
+            if conn is None:
+                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar datos iniciales")
+                return
+            
+            # First load basic data (garden) from SQL seeds
+            self._load_sql_seeds(conn)
+            
+            # Then load hortalizas from TOML
+            self._load_hortalizas_from_toml(conn)
+            
+            # Load structures from TOML
+            self._load_estructuras_from_toml(conn)
+            
+            # Create relationships for sample plants
+            self._create_sample_relationships(conn)
         
         print("✓ Todos los datos iniciales cargados")
+
+    def initialize_database(self):
+        """Initialize database with schema and initial data using single connection"""
+        if not self.is_available():
+            print("⚠️ KuzuDB no disponible, saltando inicialización completa")
+            return False
+            
+        try:
+            # Initialize schema first
+            if not self.initialize_schema():
+                print("❌ Schema creation failed - aborting initialization")
+                return False
+            
+            # Load initial data
+            self.load_initial_data()
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error general inicializando base de datos: {e}")
+            return False
     
-    def _load_sql_seeds(self):
+    def _load_sql_seeds(self, conn=None):
         """Load basic data from SQL seeds file"""
         seeds_path = "database/seeds/initial_data.sql"
         
@@ -307,12 +348,15 @@ class KuzuDBManager:
             print(f"⚠️ Seeds file no encontrado: {seeds_path}")
             return
         
-        try:
+        # Use provided connection or create a new one
+        use_existing = conn is not None
+        if not use_existing:
             conn = self.connect()
             if conn is None:
                 print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar datos SQL")
                 return
-                
+        
+        try:
             with open(seeds_path, "r", encoding="utf-8") as f:
                 seeds_content = f.read()
             
@@ -334,14 +378,18 @@ class KuzuDBManager:
         except Exception as e:
             print(f"❌ Error general cargando SQL seeds: {e}")
     
-    def _load_hortalizas_from_toml(self):
+    def _load_hortalizas_from_toml(self, conn=None):
         """Load hortalizas from TOML configuration"""
         try:
             hortalizas = toml_loader.get_hortalizas()
-            conn = self.connect()
-            if conn is None:
-                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar hortalizas")
-                return
+            
+            # Use provided connection or create a new one
+            use_existing = conn is not None
+            if not use_existing:
+                conn = self.connect()
+                if conn is None:
+                    print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar hortalizas")
+                    return
             
             for hortaliza in hortalizas:
                 # Convert arrays to proper format for KuzuDB
@@ -385,14 +433,18 @@ class KuzuDBManager:
         except Exception as e:
             print(f"❌ Error general cargando hortalizas desde TOML: {e}")
     
-    def _load_estructuras_from_toml(self):
+    def _load_estructuras_from_toml(self, conn=None):
         """Load structures from TOML configuration"""
         try:
             estructuras = toml_loader.get_estructuras()
-            conn = self.connect()
-            if conn is None:
-                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar estructuras")
-                return
+            
+            # Use provided connection or create a new one
+            use_existing = conn is not None
+            if not use_existing:
+                conn = self.connect()
+                if conn is None:
+                    print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar estructuras")
+                    return
             
             for estructura in estructuras:
                 query = """
@@ -436,13 +488,16 @@ class KuzuDBManager:
         except Exception as e:
             print(f"❌ Error general cargando estructuras desde TOML: {e}")
     
-    def _create_sample_relationships(self):
+    def _create_sample_relationships(self, conn=None):
         """Create relationships for sample plants with TOML-loaded hortalizas"""
         try:
-            conn = self.connect()
-            if conn is None:
-                print("❌ Error: No se pudo establecer conexión a KuzuDB para crear relaciones")
-                return
+            # Use provided connection or create a new one
+            use_existing = conn is not None
+            if not use_existing:
+                conn = self.connect()
+                if conn is None:
+                    print("❌ Error: No se pudo establecer conexión a KuzuDB para crear relaciones")
+                    return
             
             # Sample plant relationships (matching the original SQL)
             relationships = [
