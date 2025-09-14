@@ -297,7 +297,7 @@ def api_check_coordinates():
         return jsonify({'success': False, 'message': str(e)})
 
 
-@app.route('/api/add_plant', methods=['POST'])
+@app.route('/api/plants', methods=['POST'])
 def api_add_plant():
     """Add a new plant to the database"""
     if not db_status['connected']:
@@ -305,9 +305,10 @@ def api_add_plant():
     
     try:
         data = request.json
-        plant_type_id = int(data.get('plant_type_id'))
-        x_coord = float(data.get('x_coord'))
-        y_coord = float(data.get('y_coord'))
+        # Accept both vegetable_id and plant_type_id for compatibility
+        plant_type_id = int(data.get('vegetable_id') or data.get('plant_type_id'))
+        x_coord = float(data.get('x'))
+        y_coord = float(data.get('y'))
         
         # Get hortaliza name
         hortalizas_config = toml_loader.get_hortalizas()
@@ -365,12 +366,62 @@ def api_add_plant():
             'fecha': datetime.now()
         })
         
+        # Create relationship with default garden
+        garden_relate_query = """
+        MATCH (p:Planta {id: $planta_id}), (h:Huerta {id: "huerta_default"})
+        CREATE (p)-[:PART_OF {fecha_relacion: $fecha}]->(h)
+        """
+        
+        kuzu_manager.execute_query(garden_relate_query, {
+            'planta_id': plant_id,
+            'fecha': datetime.now()
+        })
+        
+        kuzu_manager.close()
+        
+        # Return the created plant object for frontend
+        return jsonify({
+            'success': True,
+            'message': f'Plant {plant_id} added successfully!',
+            'plant_id': plant_id,
+            'id': plant_id,
+            'x': x_coord,
+            'y': y_coord,
+            'type': hortaliza_name,
+            'vegetable_name': hortaliza_name,
+            'planting_date': datetime.now().date().isoformat(),
+            'date': datetime.now().date().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/plants/<plant_id>', methods=['DELETE'])
+def api_remove_plant_by_id(plant_id):
+    """Remove a plant from the database by ID (DELETE method)"""
+    if not db_status['connected']:
+        return jsonify({'success': False, 'message': 'Database not connected'})
+    
+    try:
+        if not plant_id:
+            raise Exception("Plant ID is required")
+        
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise Exception("Could not connect to database")
+        
+        # Remove plant and all its relationships
+        remove_query = """
+        MATCH (p:Planta {id: $plant_id})
+        DETACH DELETE p
+        """
+        kuzu_manager.execute_query(remove_query, {'plant_id': plant_id})
         kuzu_manager.close()
         
         return jsonify({
             'success': True,
-            'message': f'Plant {plant_id} added successfully!',
-            'plant_id': plant_id
+            'message': f'Plant {plant_id} removed successfully'
         })
         
     except Exception as e:
@@ -504,6 +555,42 @@ def api_garden_stats():
         return jsonify({'success': True, 'stats': stats})
         
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/reset_db', methods=['POST'])
+def api_reset_db():
+    """Reset/refresh the database - reinitialize with fresh data"""
+    try:
+        # Remove old database
+        import shutil
+        if os.path.exists("database/garden.kuzu"):
+            if os.path.isfile("database/garden.kuzu"):
+                os.remove("database/garden.kuzu")
+            else:
+                shutil.rmtree("database/garden.kuzu")
+        
+        # Connect and initialize
+        conn = kuzu_manager.connect()
+        if not conn:
+            raise Exception("Could not connect to KuzuDB")
+        
+        # Initialize schema and data
+        schema_success = kuzu_manager.initialize_schema()
+        if not schema_success:
+            raise Exception("Schema initialization failed")
+        
+        kuzu_manager.load_initial_data()
+        kuzu_manager.close()
+        
+        db_status['connected'] = True
+        db_status['message'] = 'Database reset and reinitialized'
+        
+        return jsonify({'success': True, 'message': 'Database reset successfully!'})
+        
+    except Exception as e:
+        db_status['connected'] = False
+        db_status['message'] = f'Reset failed: {str(e)}'
         return jsonify({'success': False, 'message': str(e)})
 
 
