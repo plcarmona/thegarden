@@ -1,5 +1,5 @@
 -- Schema KuzuDB para The Garden
--- Definición de nodos y relaciones para el sistema de gestión de huerta
+   -- Definición de nodos y relaciones para el sistema de gestión de huerta
 
 -- =============================================
 -- TABLAS DE NODOS (NODE TABLES)
@@ -25,9 +25,9 @@ CREATE NODE TABLE Planta (
     fecha_siembra DATE,
     coordenadas_x DOUBLE,
     coordenadas_y DOUBLE,
-    estado STRING,
     fecha_cosecha DATE,
-    notas STRING
+    --estado STRING,
+    --notas STRING []
 );
 
 -- Huerta: Información espacial y configuración de jardín
@@ -36,9 +36,16 @@ CREATE NODE TABLE Huerta (
     nombre STRING,
     ancho DOUBLE,
     alto DOUBLE,
-    configuracion_activa BOOLEAN,
     fecha_creacion TIMESTAMP,
-    descripcion STRING
+);
+
+-- Notas: Registro de notas y observaciones
+CREATE NODE TABLE Anotation (
+    id STRING PRIMARY KEY,
+    tipo STRING, -- 'planta', 'huerta', 'hortaliza', 'estacion', 'plagas', 'planing', etc.
+    comentario STRING,
+    fecha TIMESTAMP,
+    
 );
 
 -- =============================================
@@ -50,3 +57,30 @@ CREATE REL TABLE IS_OF_TYPE (
     FROM Planta TO Hortaliza,
     fecha_relacion TIMESTAMP
 );
+
+-- PART_OF: Planta -> Huerta (una planta pertenece a una huerta)
+CREATE REL TABLE PART_OF (
+    FROM Planta TO Huerta,
+    fecha_relacion TIMESTAMP
+);
+
+-- HAS_ANOTATION: Planta -> Anotation (una planta tiene anotaciones)
+CREATE REL TABLE HAS_ANOTATION (
+    FROM Planta TO Anotation,
+    fecha_relacion TIMESTAMP
+);
+
+-- HAS_ANOTATION_HUERTA: Huerta -> Anotation (una huerta tiene anotaciones)
+CREATE REL TABLE HAS_ANOTATION_HUERTA (
+    FROM Huerta TO Anotation,
+    fecha_relacion TIMESTAMP
+);
+
+-- HAS_ANOTATION_HORTALIZA: Hortaliza -> Anotation (una hortaliza tiene anotaciones)
+CREATE REL TABLE HAS_ANOTATION_HORTALIZA (
+    FROM Hortaliza TO Anotation,
+    fecha_relacion TIMESTAMP
+);
+
+-- =============================================
+
