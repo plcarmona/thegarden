@@ -178,6 +178,11 @@ class GardenGUI {
     updateHover(x, y) {
         // This could highlight plants on hover
         // For now, just update cursor
+        if (this.currentTool === 'add-plant') {
+            this.canvas.style.cursor = 'crosshair';
+            return;
+        }
+        
         const threshold = 20 / this.scale;
         let foundPlant = false;
         
@@ -192,7 +197,7 @@ class GardenGUI {
             }
         }
         
-        this.canvas.style.cursor = foundPlant ? 'pointer' : 'crosshair';
+        this.canvas.style.cursor = foundPlant ? 'pointer' : 'default';
     }
 
     highlightPlantInSidebar(plantId) {
@@ -208,6 +213,44 @@ class GardenGUI {
             plantElement.style.background = '#e8f4fd';
             plantElement.style.borderColor = '#3498db';
             plantElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    togglePlantMode() {
+        if (this.currentTool === 'add-plant') {
+            // Exit plant mode
+            this.currentTool = 'select';
+            this.updateAddPlantButton(false);
+        } else {
+            // Enter plant mode
+            this.currentTool = 'add-plant';
+            this.updateAddPlantButton(true);
+        }
+        this.updateCursor();
+    }
+
+    updateAddPlantButton(isActive) {
+        const button = document.querySelector('button[onclick*="togglePlantMode"]');
+        if (button) {
+            if (isActive) {
+                button.textContent = '🎯 Click to Plant (Exit)';
+                button.classList.add('active');
+                button.style.background = '#e74c3c';
+                button.style.color = 'white';
+            } else {
+                button.textContent = '➕ Add Plant';
+                button.classList.remove('active');
+                button.style.background = '';
+                button.style.color = '';
+            }
+        }
+    }
+
+    updateCursor() {
+        if (this.currentTool === 'add-plant') {
+            this.canvas.style.cursor = 'crosshair';
+        } else {
+            this.canvas.style.cursor = 'default';
         }
     }
 
@@ -230,8 +273,7 @@ class GardenGUI {
         // Draw plants
         this.drawPlants();
         
-        // Draw annotations
-        this.drawAnnotations();
+        // Note: Annotations are now only shown in sidebar, not on canvas
         
         // Restore context
         this.ctx.restore();
@@ -744,6 +786,10 @@ function showNotification(message, type = 'success') {
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
+}
+
+function togglePlantMode() {
+    gardenGUI.togglePlantMode();
 }
 
 function showAddPlantModal() {
