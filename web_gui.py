@@ -4,13 +4,13 @@ The Garden - Web GUI Application
 Web-based graphical interface for managing garden plants and database
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_from_directory
 import os
 from datetime import datetime
 from database.kuzu_manager import kuzu_manager
 from database.toml_loader import toml_loader
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='gui', static_folder='gui')
 app.secret_key = 'garden_secret_key_2024'  # For session management and flash messages
 
 # Global state
@@ -25,6 +25,12 @@ db_status = {
 def index():
     """Main page"""
     return render_template('index.html', db_status=db_status)
+
+
+@app.route('/garden-gui.js')
+def serve_js():
+    """Serve the JavaScript file"""
+    return send_from_directory('gui', 'garden-gui.js')
 
 
 @app.route('/api/db_status')
@@ -134,6 +140,42 @@ def api_get_plants():
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
+
+
+@app.route('/api/vegetables')
+def api_vegetables():
+    """Get available vegetables (alias for hortalizas)"""
+    try:
+        hortalizas_config = toml_loader.get_hortalizas()
+        if hortalizas_config:
+            vegetables = [{
+                'id': h['id'],
+                'name': h['nombre'],
+                'description': h['descripcion']
+            } for h in hortalizas_config]
+            return jsonify(vegetables)
+        else:
+            return jsonify([])
+    except Exception as e:
+        return jsonify([])  # Return empty array on error
+
+
+@app.route('/api/initialize', methods=['POST'])
+def api_initialize():
+    """Initialize database (alias for initialize_db)"""
+    return api_initialize_db()
+
+
+@app.route('/api/annotations')
+def api_annotations():
+    """Get annotations (placeholder - returning empty list for now)"""
+    return jsonify([])
+
+
+@app.route('/api/structures')
+def api_structures():
+    """Get structures (placeholder - returning empty list for now)"""
+    return jsonify([])
 
 
 @app.route('/api/hortalizas')
