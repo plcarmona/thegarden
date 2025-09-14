@@ -500,9 +500,21 @@ class GardenGUI:
 
 def main():
     """Main function to run the GUI"""
-    root = tk.Tk()
-    app = GardenGUI(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = GardenGUI(root)
+        root.mainloop()
+    except Exception as e:
+        if "couldn't connect to display" in str(e) or "no display name" in str(e):
+            print("❌ Cannot start Tkinter GUI: No display available")
+            print("This usually happens in headless environments (servers without GUI).")
+            print("💡 Try using the web GUI instead:")
+            print("   python web_gui.py")
+            print("   Then open http://localhost:5001 in your browser")
+        else:
+            print(f"❌ Error starting Tkinter GUI: {e}")
+        return False
+    return True
 
 
 if __name__ == "__main__":
