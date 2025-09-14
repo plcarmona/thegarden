@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌱 The Garden - Plant Management</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #8BC34A;
+            --danger-color: #f44336;
+            --warning-color: #ff9800;
+            --info-color: #2196F3;
+            --background-color: #f5f5f5;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: var(--card-background);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .card h2 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .btn-warning {
+            background: var(--warning-color);
+        }
+
+        .btn-warning:hover {
+            background: #f57c00;
+        }
+
+        .btn-info {
+            background: var(--info-color);
+        }
+
+        .btn-info:hover {
+            background: #1976d2;
+        }
+
+        .status {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .plants-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .plants-table th,
+        .plants-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .plants-table th {
+            background: var(--background-color);
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .plants-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .plants-table tr.selected {
+            background: #e8f5e8;
+        }
+
+        .coordinate-check {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .coordinate-check.usable {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .coordinate-check.blocked {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .coordinate-check.checking {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: var(--background-color);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-title {
+            color: var(--primary-color);
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 The Garden</h1>
+            <p>Plant Management System</p>
+        </div>
+
+        <!-- Database Status -->
+        <div class="card">
+            <h2>🔗 Database Status</h2>
+            <div id="db-status" class="status disconnected">
+                ❌ Not connected
+            </div>
+            <div>
+                <button id="init-db-btn" class="btn">Initialize Database</button>
+                <button id="connect-db-btn" class="btn btn-info">Connect to Database</button>
+                <button id="refresh-stats-btn" class="btn btn-info" disabled>Refresh Stats</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Current Plants -->
+            <div class="card">
+                <h2>🌿 Current Plants</h2>
+                <div>
+                    <button id="refresh-plants-btn" class="btn btn-info" disabled>Refresh Plants</button>
+                    <button id="remove-plant-btn" class="btn btn-danger" disabled>Remove Selected</button>
+                </div>
+                
+                <div id="plants-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading plants...</p>
+                </div>
+                
+                <table id="plants-table" class="plants-table">
+                    <thead>
+                        <tr>
+                            <th>Plant ID</th>
+                            <th>Type</th>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Planted</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plants-tbody">
+                        <!-- Plants will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Add New Plant -->
+            <div class="card">
+                <h2>➕ Add New Plant</h2>
+                
+                <form id="add-plant-form">
+                    <div class="form-group">
+                        <label for="plant-type">Plant Type:</label>
+                        <select id="plant-type" required disabled>
+                            <option value="">Select a plant type...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="x-coord">X Coordinate:</label>
+                        <input type="number" id="x-coord" step="0.1" required disabled>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="y-coord">Y Coordinate:</label>
+                        <input type="number" id="y-coord" step="0.1" required disabled>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="button" id="check-coords-btn" class="btn btn-info" disabled>Check Coordinates</button>
+                    </div>
+                    
+                    <div id="coord-status"></div>
+                    
+                    <div class="form-group">
+                        <button type="submit" id="add-plant-btn" class="btn" disabled>Add Plant</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Garden Statistics -->
+        <div class="card">
+            <h2>📊 Garden Statistics</h2>
+            <div id="stats-loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading statistics...</p>
+            </div>
+            <div id="stats-content" class="stats-grid">
+                <!-- Stats will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="messages"></div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm Action</h3>
+                <button class="close" onclick="closeModal('confirmation-modal')">&times;</button>
+            </div>
+            <div id="modal-message">
+                <!-- Message content will be set dynamically -->
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="btn" onclick="closeModal('confirmation-modal')" style="margin-right: 10px;">Cancel</button>
+                <button id="confirm-action-btn" class="btn btn-warning">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedPlant = null;
+        let pendingAction = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            checkDbStatus();
+            loadHortalizas();
+            
+            // Event listeners
+            document.getElementById('init-db-btn').addEventListener('click', initializeDatabase);
+            document.getElementById('connect-db-btn').addEventListener('click', connectDatabase);
+            document.getElementById('refresh-stats-btn').addEventListener('click', loadStats);
+            document.getElementById('refresh-plants-btn').addEventListener('click', loadPlants);
+            document.getElementById('remove-plant-btn').addEventListener('click', removePlant);
+            document.getElementById('check-coords-btn').addEventListener('click', checkCoordinates);
+            document.getElementById('add-plant-form').addEventListener('submit', addPlant);
+            document.getElementById('confirm-action-btn').addEventListener('click', executeConfirmedAction);
+            
+            // Input change listeners
+            document.getElementById('x-coord').addEventListener('input', clearCoordStatus);
+            document.getElementById('y-coord').addEventListener('input', clearCoordStatus);
+        });
+
+        function showMessage(message, type = 'info') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        function showLoading(elementId, show) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.display = show ? 'block' : 'none';
+            }
+        }
+
+        async function checkDbStatus() {
+            try {
+                const response = await fetch('/api/db_status');
+                const data = await response.json();
+                updateDbStatus(data);
+            } catch (error) {
+                console.error('Error checking database status:', error);
+            }
+        }
+
+        function updateDbStatus(status) {
+            const statusDiv = document.getElementById('db-status');
+            const buttons = ['init-db-btn', 'connect-db-btn', 'refresh-stats-btn', 'refresh-plants-btn', 
+                           'plant-type', 'x-coord', 'y-coord', 'check-coords-btn', 'add-plant-btn'];
+            
+            if (status.connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = '✅ ' + status.message;
+                
+                // Enable UI elements
+                buttons.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.disabled = false;
+                });
+                
+                loadPlants();
+                loadStats();
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = '❌ ' + status.message;
+                
+                // Disable most UI elements
+                buttons.slice(2).forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.disabled = true;
+                });
+            }
+        }
+
+        async function initializeDatabase() {
+            const btn = document.getElementById('init-db-btn');
+            btn.disabled = true;
+            btn.textContent = 'Initializing...';
+            
+            try {
+                const response = await fetch('/api/initialize_db', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    checkDbStatus();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error initializing database: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Initialize Database';
+            }
+        }
+
+        async function connectDatabase() {
+            const btn = document.getElementById('connect-db-btn');
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+            
+            try {
+                const response = await fetch('/api/connect_db', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    checkDbStatus();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error connecting to database: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Connect to Database';
+            }
+        }
+
+        async function loadHortalizas() {
+            try {
+                const response = await fetch('/api/hortalizas');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const select = document.getElementById('plant-type');
+                    select.innerHTML = '<option value="">Select a plant type...</option>';
+                    
+                    data.hortalizas.forEach(h => {
+                        const option = document.createElement('option');
+                        option.value = h.id;
+                        option.textContent = `${h.name} - ${h.description}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading hortalizas:', error);
+            }
+        }
+
+        async function loadPlants() {
+            showLoading('plants-loading', true);
+            
+            try {
+                const response = await fetch('/api/plants');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const tbody = document.getElementById('plants-tbody');
+                    tbody.innerHTML = '';
+                    
+                    data.plants.forEach(plant => {
+                        const row = document.createElement('tr');
+                        row.onclick = () => selectPlant(row, plant.id);
+                        row.innerHTML = `
+                            <td>${plant.id}</td>
+                            <td>${plant.type}</td>
+                            <td>${plant.x}</td>
+                            <td>${plant.y}</td>
+                            <td>${plant.date}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error loading plants: ' + error.message, 'error');
+            } finally {
+                showLoading('plants-loading', false);
+            }
+        }
+
+        function selectPlant(row, plantId) {
+            // Remove previous selection
+            document.querySelectorAll('.plants-table tr').forEach(r => r.classList.remove('selected'));
+            
+            // Select new row
+            row.classList.add('selected');
+            selectedPlant = plantId;
+            
+            // Enable remove button
+            document.getElementById('remove-plant-btn').disabled = false;
+        }
+
+        async function checkCoordinates() {
+            const x = document.getElementById('x-coord').value;
+            const y = document.getElementById('y-coord').value;
+            
+            if (!x || !y) {
+                showMessage('Please enter both coordinates', 'warning');
+                return;
+            }
+            
+            const statusDiv = document.getElementById('coord-status');
+            statusDiv.className = 'coordinate-check checking';
+            statusDiv.textContent = '🔍 Checking coordinates...';
+            
+            try {
+                const response = await fetch(`/api/check_coordinates?x=${x}&y=${y}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.usable) {
+                        statusDiv.className = 'coordinate-check usable';
+                        statusDiv.textContent = '✅ ' + data.message;
+                    } else {
+                        statusDiv.className = 'coordinate-check blocked';
+                        statusDiv.textContent = '❌ ' + data.message;
+                    }
+                } else {
+                    statusDiv.className = 'coordinate-check blocked';
+                    statusDiv.textContent = '❌ Error: ' + data.message;
+                }
+            } catch (error) {
+                statusDiv.className = 'coordinate-check blocked';
+                statusDiv.textContent = '❌ Error checking coordinates: ' + error.message;
+            }
+        }
+
+        function clearCoordStatus() {
+            const statusDiv = document.getElementById('coord-status');
+            statusDiv.textContent = '';
+            statusDiv.className = '';
+        }
+
+        async function addPlant(event) {
+            event.preventDefault();
+            
+            const plantTypeId = document.getElementById('plant-type').value;
+            const x = document.getElementById('x-coord').value;
+            const y = document.getElementById('y-coord').value;
+            
+            if (!plantTypeId || !x || !y) {
+                showMessage('Please fill all fields', 'warning');
+                return;
+            }
+            
+            const btn = document.getElementById('add-plant-btn');
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+            
+            try {
+                const response = await fetch('/api/add_plant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        plant_type_id: parseInt(plantTypeId),
+                        x_coord: parseFloat(x),
+                        y_coord: parseFloat(y)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    document.getElementById('add-plant-form').reset();
+                    clearCoordStatus();
+                    loadPlants();
+                } else if (data.needs_confirmation) {
+                    showConfirmationModal(data.message, () => {
+                        addPlantForced(plantTypeId, x, y);
+                    });
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error adding plant: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Add Plant';
+            }
+        }
+
+        async function addPlantForced(plantTypeId, x, y) {
+            try {
+                const response = await fetch('/api/add_plant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        plant_type_id: parseInt(plantTypeId),
+                        x_coord: parseFloat(x),
+                        y_coord: parseFloat(y),
+                        force_add: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    document.getElementById('add-plant-form').reset();
+                    clearCoordStatus();
+                    loadPlants();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error adding plant: ' + error.message, 'error');
+            }
+        }
+
+        function removePlant() {
+            if (!selectedPlant) {
+                showMessage('Please select a plant to remove', 'warning');
+                return;
+            }
+            
+            showConfirmationModal(
+                `Are you sure you want to remove plant '${selectedPlant}'? This action cannot be undone.`,
+                () => executeRemovePlant(selectedPlant)
+            );
+        }
+
+        async function executeRemovePlant(plantId) {
+            try {
+                const response = await fetch('/api/remove_plant', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ plant_id: plantId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    selectedPlant = null;
+                    document.getElementById('remove-plant-btn').disabled = true;
+                    loadPlants();
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error removing plant: ' + error.message, 'error');
+            }
+        }
+
+        async function loadStats() {
+            showLoading('stats-loading', true);
+            
+            try {
+                const response = await fetch('/api/garden_stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const statsContent = document.getElementById('stats-content');
+                    statsContent.innerHTML = '';
+                    
+                    const stats = data.stats;
+                    const statItems = [
+                        { label: 'Plants', value: stats.plants, icon: '🌱' },
+                        { label: 'Gardens', value: stats.gardens, icon: '🏡' },
+                        { label: 'Plant Types', value: stats.vegetable_types, icon: '🌿' },
+                        { label: 'Structures', value: stats.structures, icon: '🏗️' },
+                        { label: 'Annotations', value: stats.annotations, icon: '📝' }
+                    ];
+                    
+                    statItems.forEach(stat => {
+                        const div = document.createElement('div');
+                        div.className = 'stat-item';
+                        div.innerHTML = `
+                            <div class="stat-value">${stat.icon} ${stat.value}</div>
+                            <div class="stat-label">${stat.label}</div>
+                        `;
+                        statsContent.appendChild(div);
+                    });
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error loading statistics: ' + error.message, 'error');
+            } finally {
+                showLoading('stats-loading', false);
+            }
+        }
+
+        function showConfirmationModal(message, onConfirm) {
+            document.getElementById('modal-message').textContent = message;
+            document.getElementById('confirmation-modal').style.display = 'block';
+            pendingAction = onConfirm;
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            pendingAction = null;
+        }
+
+        function executeConfirmedAction() {
+            if (pendingAction) {
+                pendingAction();
+            }
+            closeModal('confirmation-modal');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('confirmation-modal');
+            if (event.target === modal) {
+                closeModal('confirmation-modal');
+            }
+        }
+    </script>
+</body>
+</html>
