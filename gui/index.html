@@ -433,21 +433,21 @@
             <form id="addPlantForm">
                 <div class="form-group">
                     <label for="plantType">Plant Type:</label>
-                    <select class="form-control" id="plantType" required>
+                    <select class="form-control" id="plantType" name="plantType" required>
                         <option value="">Select plant type...</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="plantX">X Coordinate:</label>
-                    <input type="number" class="form-control" id="plantX" step="0.1" required>
+                    <input type="number" class="form-control" id="plantX" name="plantX" step="0.1" required>
                 </div>
                 <div class="form-group">
                     <label for="plantY">Y Coordinate:</label>
-                    <input type="number" class="form-control" id="plantY" step="0.1" required>
+                    <input type="number" class="form-control" id="plantY" name="plantY" step="0.1" required>
                 </div>
                 <div class="form-group">
                     <label for="plantDate">Planting Date:</label>
-                    <input type="date" class="form-control" id="plantDate">
+                    <input type="date" class="form-control" id="plantDate" name="plantDate">
                 </div>
                 <div style="text-align: right; margin-top: 20px;">
                     <button type="button" class="btn" onclick="closeModal('addPlantModal')">Cancel</button>
@@ -467,7 +467,7 @@
             <form id="addAnnotationForm">
                 <div class="form-group">
                     <label for="annotationType">Type:</label>
-                    <select class="form-control" id="annotationType" required>
+                    <select class="form-control" id="annotationType" name="annotationType" required>
                         <option value="observation">Observation</option>
                         <option value="problem">Problem</option>
                         <option value="solution">Solution</option>
@@ -477,15 +477,15 @@
                 </div>
                 <div class="form-group">
                     <label for="annotationTitle">Title:</label>
-                    <input type="text" class="form-control" id="annotationTitle" required>
+                    <input type="text" class="form-control" id="annotationTitle" name="annotationTitle" required>
                 </div>
                 <div class="form-group">
                     <label for="annotationContent">Content:</label>
-                    <textarea class="form-control" id="annotationContent" rows="4" required></textarea>
+                    <textarea class="form-control" id="annotationContent" name="annotationContent" rows="4" required></textarea>
                 </div>
                 <div class="form-group">
                     <label for="annotationTarget">Related to:</label>
-                    <select class="form-control" id="annotationTarget" required>
+                    <select class="form-control" id="annotationTarget" name="annotationTarget" required>
                         <option value="garden">General Garden</option>
                     </select>
                 </div>
