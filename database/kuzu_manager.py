@@ -61,6 +61,10 @@ class KuzuDBManager:
             return
             
         conn = self.connect()
+        if conn is None:
+            print("❌ Error: No se pudo establecer conexión a KuzuDB para inicializar schema")
+            return
+            
         schema_path = "database/schemas/garden_schema.sql"
         
         if not os.path.exists(schema_path):
@@ -102,11 +106,41 @@ class KuzuDBManager:
                     print(f"❌ Error ejecutando comando: {command[:100]}...")
                     print(f"   Error: {e}")
                     # No fallar completamente, continuar con próximo comando
+            
+            # Validate that key tables were created successfully
+            try:
+                validation_queries = [
+                    "MATCH (n:Hortaliza) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Planta) RETURN count(n) LIMIT 1", 
+                    "MATCH (n:Huerta) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Anotation) RETURN count(n) LIMIT 1",
+                    "MATCH (n:Estructura) RETURN count(n) LIMIT 1"
+                ]
+                
+                failed_tables = []
+                for query in validation_queries:
+                    try:
+                        conn.execute(query)
+                    except Exception as e:
+                        table_name = query.split(":")[1].split(")")[0]
+                        failed_tables.append(table_name)
+                
+                if failed_tables:
+                    print(f"❌ Schema validation failed - missing tables: {', '.join(failed_tables)}")
+                    print("   Database initialization incomplete!")
+                    return False
+                else:
+                    print("✓ Schema validation successful - all tables created")
                     
+            except Exception as e:
+                print(f"⚠️ Schema validation error: {e}")
+            
             print("✓ Schema inicializado correctamente")
+            return True
             
         except Exception as e:
             print(f"❌ Error general inicializando schema: {e}")
+            return False
     
     def load_initial_data(self):
         """Cargar datos iniciales desde TOML y archivos de semillas"""
@@ -115,6 +149,9 @@ class KuzuDBManager:
             return
             
         conn = self.connect()
+        if conn is None:
+            print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar datos iniciales")
+            return
         
         # First load basic data (garden) from SQL seeds
         self._load_sql_seeds()
@@ -140,6 +177,10 @@ class KuzuDBManager:
         
         try:
             conn = self.connect()
+            if conn is None:
+                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar datos SQL")
+                return
+                
             with open(seeds_path, "r", encoding="utf-8") as f:
                 seeds_content = f.read()
             
@@ -166,6 +207,9 @@ class KuzuDBManager:
         try:
             hortalizas = toml_loader.get_hortalizas()
             conn = self.connect()
+            if conn is None:
+                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar hortalizas")
+                return
             
             for hortaliza in hortalizas:
                 # Convert arrays to proper format for KuzuDB
@@ -214,6 +258,9 @@ class KuzuDBManager:
         try:
             estructuras = toml_loader.get_estructuras()
             conn = self.connect()
+            if conn is None:
+                print("❌ Error: No se pudo establecer conexión a KuzuDB para cargar estructuras")
+                return
             
             for estructura in estructuras:
                 query = """
@@ -261,6 +308,9 @@ class KuzuDBManager:
         """Create relationships for sample plants with TOML-loaded hortalizas"""
         try:
             conn = self.connect()
+            if conn is None:
+                print("❌ Error: No se pudo establecer conexión a KuzuDB para crear relaciones")
+                return
             
             # Sample plant relationships (matching the original SQL)
             relationships = [
