@@ -31,7 +31,11 @@ class KuzuDBManager:
     
     def _ensure_db_exists(self):
         """Crear directorio de base de datos si no existe"""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        try:
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        except (OSError, PermissionError) as e:
+            print(f"⚠️ No se pudo crear directorio para base de datos: {e}")
+            self._kuzu_available = False
         
     def connect(self):
         """Conectar a la base de datos KuzuDB"""
